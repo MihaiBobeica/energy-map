@@ -10,6 +10,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: false,
     setupFiles: ["src/test/setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}"],
+    // tests/data holds browser-free integrity checks over the shipped data
+    // files (geometry <-> index <-> values joins).
+    include: ["src/**/*.test.{ts,tsx}", "tests/data/**/*.test.{ts,tsx}"],
   },
 })

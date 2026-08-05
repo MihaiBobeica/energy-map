@@ -12,11 +12,12 @@ test("atlas loads under /energy-map/ with controls, legend and default year", as
   await expect(page.getByLabel("Legend")).toContainText("No data")
 })
 
-test("map canvas renders, or an explicit fallback message is shown", async ({ page }) => {
+test("map canvas renders and the WebGL fallback is not shown", async ({ page }) => {
   await page.goto("./")
-  const canvas = page.locator(".map-container canvas")
-  const fallback = page.locator(".map-fallback")
-  await expect(canvas.or(fallback).first()).toBeVisible()
+  // `canvas.or(fallback)` would be a tautology: it is satisfied in every state,
+  // including total failure. Success and failure must not be interchangeable.
+  await expect(page.locator(".map-container canvas")).toBeVisible()
+  await expect(page.locator(".map-fallback")).toHaveCount(0)
 })
 
 test("metric and year changes update the shareable URL", async ({ page }) => {

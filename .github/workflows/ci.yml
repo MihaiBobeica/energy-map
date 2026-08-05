@@ -38,6 +38,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Catches the silent class of failure where the bundle references an
+      # asset (worker, wasm) that the build never emitted: a runtime 404 with
+      # no console error and no visible symptom other than a broken feature.
+      - name: Verify every referenced asset was emitted
+        run: npm run verify:assets
+
       - name: Verify built data and scan for forbidden content
         run: bash scripts/verify-data.sh dist/data dist
 

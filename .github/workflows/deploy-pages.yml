@@ -41,8 +41,16 @@ jobs:
       - name: Unit and component tests
         run: npm run test
 
+      # Parity with ci.yml: the workflow that actually publishes must not run a
+      # weaker gate than the one that does not.
+      - name: Verify source data
+        run: bash scripts/verify-data.sh public/data
+
       - name: Build
         run: npm run build
+
+      - name: Verify every referenced asset was emitted
+        run: npm run verify:assets
 
       - name: Verify built data and scan for forbidden content
         run: bash scripts/verify-data.sh dist/data dist
