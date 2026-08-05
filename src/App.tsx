@@ -115,7 +115,6 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
     if (!dataset) return []
     return basis === "per-capita" ? perCapitaYears(dataset.years, populationYears) : dataset.years
   }, [dataset, basis, populationYears])
-  const perCapitaLastYear = manifest.population?.years.at(-1) ?? null
   const perCapitaSupportedForYear = populationYears.has(year)
   const perCapitaOffered = manifest.population !== null && populationYears.size > 0
   const projectedFromYear = manifest.population?.projectedFromYear ?? null
@@ -356,11 +355,7 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
         years={availableYears}
         playing={playing}
         loading={yearLoading}
-        evidenceLine={evidenceLine}
         perCapitaAvailable={perCapitaOffered && perCapitaSupportedForYear}
-        perCapitaLastYear={perCapitaOffered ? perCapitaLastYear : null}
-        populationIsProjected={populationIsProjected}
-        projectedFromYear={projectedFromYear}
         onSelectDataset={handleSelectDataset}
         onBasisChange={handleBasisChange}
         onYearChange={setYear}
@@ -391,7 +386,6 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
 
       {selectedIso3 && selectedName && (
         <CountryPanel
-          iso3={selectedIso3}
           name={selectedName}
           dataset={dataset}
           datasets={datasets}

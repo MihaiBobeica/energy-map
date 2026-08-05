@@ -45,7 +45,7 @@ export function SourceMix({
   const reported = rows.filter((row) => row.value !== null)
   const unreported = rows.filter((row) => row.value === null)
   if (reported.length === 0) {
-    return <p className="panel-missing">No generation-by-source figures reported for {year}.</p>
+    return <p className="panel-missing">No breakdown reported for {year}.</p>
   }
   const unit = sources[0]?.unit ?? "TWh"
   const scaleMax = Math.max(...reported.map((row) => row.value ?? 0), 0)
@@ -96,13 +96,12 @@ export function SourceMix({
           <strong>{formatValue(totalValue, unit)}</strong>
         </p>
       )}
+      {/* Terse, but not omitted: without it the shares read as a complete
+          picture when they cover only the reported part of one. */}
       {unreported.length > 0 && (
         <p className="source-incomplete">
-          {unreported.length === 1
-            ? `${unreported[0]?.dataset.title} was not reported in ${year}.`
-            : `${unreported.length} sources were not reported in ${year}.`}{" "}
-          The total sums only the reported sources, so it understates actual generation, and the
-          shares are of what was reported — not of all electricity generated.
+          {unreported.length === 1 ? "1 source" : `${unreported.length} sources`} not reported —
+          shares cover what was reported.
         </p>
       )}
     </section>

@@ -92,9 +92,11 @@ export function MapView({
         maxZoom: 10,
         attributionControl: false,
       })
+      // Bottom-right, not top-right: the country panel opens against the top
+      // right edge and the zoom buttons ended up underneath it.
       map.addControl(
         new NavigationControl({ showCompass: false, visualizePitch: false }),
-        "top-right",
+        "bottom-right",
       )
       map.on("error", (event: { error: unknown }) => {
         console.error("MapLibre error", event.error)

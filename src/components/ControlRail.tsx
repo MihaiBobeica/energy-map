@@ -42,11 +42,7 @@ type ControlRailProps = {
   years: number[]
   playing: boolean
   loading: boolean
-  evidenceLine: string
   perCapitaAvailable: boolean
-  perCapitaLastYear: number | null
-  populationIsProjected: boolean
-  projectedFromYear: number | null
   onSelectDataset: (metric: string, energySource: string | null) => void
   onBasisChange: (basis: Basis) => void
   onYearChange: (year: number) => void
@@ -70,11 +66,7 @@ export function ControlRail({
   years,
   playing,
   loading,
-  evidenceLine,
   perCapitaAvailable,
-  perCapitaLastYear,
-  populationIsProjected,
-  projectedFromYear,
   onSelectDataset,
   onBasisChange,
   onYearChange,
@@ -89,14 +81,15 @@ export function ControlRail({
   const singleTimePoint = years.length <= 1
   const fillPercent = lastIndex > 0 ? (Math.max(yearIndex, 0) / lastIndex) * 100 : 100
 
-  const coverageNote = (() => {
-    if (!dataset.yearGeographyCounts) return null
-    const datasetIndex = dataset.years.indexOf(year)
-    if (datasetIndex < 0) return null
-    const count = dataset.yearGeographyCounts[datasetIndex]
+  // One word, not a sentence: without it a year most countries have not
+  // reported yet reads as a collapse in generation rather than a gap.
+  const partialYear = (() => {
+    if (!dataset.yearGeographyCounts) return false
+    const index = dataset.years.indexOf(year)
+    if (index < 0) return false
+    const count = dataset.yearGeographyCounts[index]
     const max = Math.max(...dataset.yearGeographyCounts)
-    if (count === undefined || count >= 0.8 * max) return null
-    return `Partial coverage: ${count} countries reported so far for ${year}.`
+    return count !== undefined && count < 0.8 * max
   })()
 
   const step = (delta: number) => {
@@ -108,11 +101,10 @@ export function ControlRail({
     <section className="card rail" aria-label="Map controls">
       <header className="rail-head">
         <h1>Energy Map</h1>
-        <p className="rail-subtitle">{evidenceLine}</p>
       </header>
 
       <div className="rail-body">
-        <section className="rail-section">
+        <section className="rail-section rail-view">
           <label className="field">
             <span className="field-label">Metric</span>
             <select
@@ -150,7 +142,7 @@ export function ControlRail({
             </label>
           )}
 
-          <div className="field">
+          <div className="field field-basis">
             <span className="field-label" id="basis-label">
               Values
             </span>
@@ -178,25 +170,13 @@ export function ControlRail({
               </label>
             </div>
           </div>
-
-          {!perCapitaAvailable && perCapitaLastYear !== null && (
-            <p className="rail-note">
-              Per capita unavailable — population estimates end in {perCapitaLastYear}.{" "}
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => onBasisChange("per-capita")}
-              >
-                Show {perCapitaLastYear} per person
-              </button>
-            </p>
-          )}
         </section>
 
         <section className="rail-section rail-time">
           <div className="time-head">
             <span className="field-label">Year</span>
             {loading && <span className="time-loading">loading…</span>}
+            {partialYear && <span className="time-partial">partial</span>}
             <strong className="time-value" data-testid="year-value">
               {year}
             </strong>
@@ -260,12 +240,6 @@ export function ControlRail({
           </div>
           {/* The denominator changes kind partway along the timeline, and that
               is a difference in what the number means — not a footnote. */}
-          {populationIsProjected && projectedFromYear !== null && (
-            <p className="rail-note">
-              Population from {projectedFromYear} is a UN projection, not an estimate.
-            </p>
-          )}
-          {coverageNote && <p className="rail-note">{coverageNote}</p>}
         </section>
       </div>
 

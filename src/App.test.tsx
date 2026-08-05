@@ -260,7 +260,9 @@ describe("Atlas UI", () => {
     stubFetchRoutes()
     render(<App />)
 
-    expect(await screen.findByText(/Partial coverage: 91 countries/)).toBeInTheDocument()
+    // One word beside the year, not a sentence — but still present, so a
+    // barely-reported year cannot be mistaken for a collapse.
+    expect(await screen.findByText("partial")).toBeInTheDocument()
   })
 
   it("offers an energy-source selector for generation and hides it for demand", async () => {
@@ -309,8 +311,8 @@ describe("Atlas UI", () => {
     expect(within(mix).getByText("Coal")).toBeInTheDocument()
     // Solar has no 2024 point: it must read as unreported, never as zero.
     expect(within(mix).getByText("not reported")).toBeInTheDocument()
-    // And the panel must say the total therefore understates generation.
-    expect(screen.getByText(/understates actual/)).toBeInTheDocument()
+    // And the panel must still say the shares cover only what was reported.
+    expect(screen.getByText(/shares cover what was reported/)).toBeInTheDocument()
   })
 
   it("switches to per-capita, changing unit, scale and URL", async () => {
@@ -352,14 +354,11 @@ describe("Atlas UI", () => {
     render(<App />)
 
     expect(await screen.findByRole("heading", { name: "United States" })).toBeInTheDocument()
-    // Rail subtitle and panel badge must both say "projected", not
-    // "reconstructed" — the denominator is a UN projection for 2025.
-    expect(screen.getAllByText(/Observed electricity ÷ projected population/)).toHaveLength(2)
-    expect(screen.queryByText(/÷ reconstructed population/)).not.toBeInTheDocument()
-    // Said twice on purpose: beside the population figure in the panel, and
-    // in the rail where a reader who never opens a country still sees it.
-    expect(screen.getAllByText(/UN projection, not an estimate/)).toHaveLength(2)
-    expect(screen.getByText(/Population from 2025 is a UN projection/)).toBeInTheDocument()
+    // Terse now, but the distinction survives: a projected denominator is
+    // still marked as projected rather than passing as an estimate.
+    expect(screen.getByText("Per person · projected population")).toBeInTheDocument()
+    // Marked in two places: the evidence tag and beside the population figure.
+    expect(screen.getAllByText(/projected/).length).toBeGreaterThanOrEqual(2)
   })
 
   it("labels a per-capita value as derived, not plainly observed", async () => {
@@ -372,9 +371,10 @@ describe("Atlas UI", () => {
     render(<App />)
 
     expect(await screen.findByRole("heading", { name: "United States" })).toBeInTheDocument()
-    // 2024 is still an estimate in the fixture, so it keeps the reconstructed
-    // wording — the two cases must not collapse into one.
-    expect(screen.getAllByText(/Observed electricity ÷ reconstructed population/)).toHaveLength(2)
+    // 2024 is an estimate in the fixture, so it must NOT carry the projected
+    // marker — the two cases must not collapse into one.
+    expect(screen.getByText("Per person")).toBeInTheDocument()
+    expect(screen.queryByText(/projected population/)).not.toBeInTheDocument()
     // 4200.25 TWh over 342,000,000 people ≈ 12,281 kWh each.
     expect(screen.getByText(/12,280/)).toBeInTheDocument()
   })

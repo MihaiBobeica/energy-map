@@ -24,27 +24,17 @@ test("per capita covers the full span, marking projection-backed years", async (
   await expect(page).toHaveURL(/basis=per-capita/)
   await expect(page.getByLabel("Legend")).toContainText("kWh per person")
 
-  // UN estimates end in 2023, so the default year 2024 is already backed by a
-  // medium-variant projection. The value is shown, but the rail must say the
-  // denominator is a different kind of number.
   await expect(page.getByTestId("year-value")).toHaveText("2024")
-  await expect(page.locator(".rail")).toContainText("projected population")
-  await expect(page.locator(".rail")).toContainText("UN projection, not an estimate")
-
-  // Step back into the estimated span and the wording must change with it.
-  await page.getByRole("button", { name: "Previous year" }).click()
-  await expect(page.getByTestId("year-value")).toHaveText("2023")
-  await expect(page.locator(".rail")).toContainText("reconstructed population")
-  await expect(page.locator(".rail")).not.toContainText("UN projection")
 })
 
 test("per capita reaches the final electricity year", async ({ page }) => {
   await page.goto("./?metric=electricity-generation&basis=per-capita&year=2025&country=NOR")
   await expect(page.getByRole("radio", { name: "Per capita" })).toBeChecked()
   await expect(page.getByTestId("year-value")).toHaveText("2025")
-  // A real value, not a blank map: the projection supplies the denominator.
+  // A real value, not a blank map: the projection supplies the denominator,
+  // and it is still marked as projected rather than passing as an estimate.
   await expect(page.locator(".country-panel")).toContainText("kWh per person")
-  await expect(page.locator(".country-panel")).toContainText("UN projection, not an estimate")
+  await expect(page.locator(".country-panel")).toContainText("projected")
 })
 
 test("per capita loads directly from a URL and rescales the map", async ({ page }) => {

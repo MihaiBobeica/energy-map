@@ -337,6 +337,14 @@ body {
   color: var(--accent);
 }
 
+/* Marks a year most countries have not reported yet, so a sparse map is not
+   read as a drop in generation. */
+.time-partial {
+  margin-right: auto;
+  font-size: 0.75rem;
+  color: var(--caution);
+}
+
 .rail-time {
   gap: 6px;
 }
@@ -528,7 +536,9 @@ body {
   top: 14px;
   right: 14px;
   width: 328px;
-  max-height: calc(100% - 28px);
+  /* Stops short of the bottom so the map's zoom buttons and attribution,
+     which sit in the bottom-right corner, are never covered. */
+  max-height: calc(100% - 132px);
   overflow-y: auto;
   scrollbar-width: thin;
   padding: 0 16px 16px;
@@ -846,52 +856,141 @@ body {
 
 /* --- mobile ------------------------------------------------------------- */
 
+/* --- mobile -------------------------------------------------------------
+   A phone has one screen, so the two panels become sheets that share it
+   rather than float over it: controls anchored to the top, country detail
+   to the bottom. Both are capped so the map is always visible between them,
+   and every target grows to a thumb size. */
+
 @media (max-width: 640px) {
   .rail {
-    top: 8px;
-    left: 8px;
-    right: 8px;
+    top: 0;
+    left: 0;
+    right: 0;
     width: auto;
-    max-height: calc(100% - 16px);
+    /* The two sheets must never add up to the whole screen: the map is the
+       product, so it keeps a guaranteed band between them. */
+    max-height: 42%;
+    border-radius: 0 0 14px 14px;
+    /* Sheets meet the screen edge, so the edge shadow only needs to fall
+       downward onto the map. */
+    box-shadow: 0 6px 20px -8px rgba(15, 39, 64, 0.3);
+    /* The rail scrolls as one piece here. Pinning the colour key would push
+       the year slider — a primary control — below the fold. */
+    overflow-y: auto;
+  }
+
+  .rail-body {
+    overflow: visible;
+    flex: none;
+  }
+
+  /* Tighter rhythm on a phone; the space goes to the map. */
+  .rail-section {
+    padding: 10px 14px;
+    gap: 9px;
+  }
+
+  .rail-head {
+    padding-bottom: 0;
+  }
+
+  .rail-foot {
+    padding: 8px 14px;
+  }
+
+  .rail-head {
+    padding-top: max(10px, env(safe-area-inset-top));
+  }
+
+  /* Two columns for the selects: a phone is wide enough for both, and it
+     saves a whole row of vertical space that the map wants back. */
+  .rail-view {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 10px;
+  }
+
+  .rail-view .field-basis {
+    grid-column: 1 / -1;
   }
 
   .country-panel {
     top: auto;
-    left: 8px;
-    right: 8px;
-    bottom: 8px;
+    left: 0;
+    right: 0;
+    /* Sits above the attribution strip rather than under it: attribution is a
+       licence term and must stay readable while the sheet is open. */
+    bottom: 22px;
     width: auto;
-    max-height: 60%;
+    max-height: 42%;
+    border-radius: 14px 14px 0 0;
+    box-shadow: 0 -6px 20px -8px rgba(15, 39, 64, 0.3);
   }
 
-  /* Quiet, but still thumb-sized. */
-  .icon-button {
-    width: 34px;
-    height: 34px;
+  /* Thumb-sized targets: 44px is the accessibility floor for touch. */
+  .icon-button,
+  .transport button {
+    width: 40px;
+    height: 40px;
   }
 
   .segment-face {
-    padding: 8px 6px;
+    padding: 10px 6px;
+    font-size: 0.8125rem;
   }
 
   .field select {
-    padding-top: 6px;
-    padding-bottom: 6px;
+    padding-top: 9px;
+    padding-bottom: 9px;
+    font-size: 16px; /* iOS zooms the page for anything smaller */
   }
 
   .year-range {
-    height: 28px;
+    height: 34px;
   }
 
   .year-range::-webkit-slider-thumb {
-    width: 16px;
-    height: 16px;
-    margin-top: -6.5px;
+    width: 20px;
+    height: 20px;
+    margin-top: -8.5px;
   }
 
   .year-range::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Pinch and double-tap already zoom on touch, and the buttons would sit
+     under the bottom sheet, so drop them here. Attribution is NOT dropped —
+     it is a licence term — it just rides above the sheet instead. */
+  .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+    display: none;
+  }
+
+  .maplibregl-ctrl-bottom-right {
+    z-index: 5;
+  }
+
+  .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
+    border-radius: 0;
+    font-size: 9.5px;
+  }
+
+  .source-row button {
+    padding: 6px 4px;
+  }
+}
+
+/* Landscape phones are short, not narrow: cap the sheets by height too so
+   they cannot swallow the map. */
+@media (max-height: 520px) {
+  .rail {
+    max-height: 88%;
+  }
+
+  .country-panel {
+    max-height: 88%;
   }
 }
 

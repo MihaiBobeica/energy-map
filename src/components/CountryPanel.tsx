@@ -20,7 +20,6 @@ const CloseIcon = () => (
 )
 
 type CountryPanelProps = {
-  iso3: string
   name: string
   dataset: ManifestDataset
   datasets: ManifestDataset[]
@@ -38,7 +37,6 @@ type CountryPanelProps = {
 }
 
 export function CountryPanel({
-  iso3,
   name,
   dataset,
   datasets,
@@ -122,12 +120,13 @@ export function CountryPanel({
         <p className="panel-value">
           {formatValue(value, scale.unit)} <span className="panel-year">in {year}</span>
         </p>
+        {/* A short tag, not an explanation: enough that a projected or derived
+            number is never mistaken for a measured one. The Methodology link
+            in the rail carries the reasoning. */}
         <p className="panel-evidence">
           {basis === "per-capita" ? (
             <span className="evidence-badge evidence-derived">
-              {populationIsProjected
-                ? "Observed electricity ÷ projected population"
-                : "Observed electricity ÷ reconstructed population"}
+              {populationIsProjected ? "Per person · projected population" : "Per person"}
             </span>
           ) : (
             <span className="evidence-badge evidence-observed">
@@ -143,9 +142,7 @@ export function CountryPanel({
             <dt>Population</dt>
             <dd>
               {population.toLocaleString("en-US")}
-              {populationIsProjected && (
-                <span className="fact-qualifier"> · UN projection, not an estimate</span>
-              )}
+              {populationIsProjected && <span className="fact-qualifier"> · projected</span>}
             </dd>
           </>
         )}
@@ -172,29 +169,14 @@ export function CountryPanel({
         </dd>
       </dl>
 
-      {value === null && (
-        <p className="panel-missing">
-          No reported value for {name} ({iso3}) in {year}. Missing is shown as missing, never as
-          zero.
-        </p>
-      )}
+      {value === null && <p className="panel-missing">Not reported for {year}.</p>}
 
       {series === "loading" && <p className="panel-loading">Loading history…</p>}
-      {series === null && (
-        <p className="panel-missing">No historical series is available for this geography.</p>
-      )}
       {chartSeries.length > 0 && (
         <div className="panel-chart">
           <LineChart series={chartSeries} unit={scale.unit} />
-          {basis === "per-capita" && population !== null && (
-            <p className="panel-chart-caption">
-              History holds population at {year}, so it tracks generation, not population.
-            </p>
-          )}
           {chartSeries.length > 1 && (
-            <p className="panel-chart-caption">
-              Blue: {dataset.title} · Grey: all sources combined.
-            </p>
+            <p className="panel-chart-caption">Blue: {dataset.title} · Grey: all sources</p>
           )}
         </div>
       )}
