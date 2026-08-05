@@ -31,6 +31,9 @@ pipeline/build/
 .env.*
 !.env.example
 
+# Local assistant/editor settings
+.claude/
+
 # Editor / OS noise
 .DS_Store
 Thumbs.db

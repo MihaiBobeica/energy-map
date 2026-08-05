@@ -1,0 +1,121 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    sans-serif;
+  color: #1c2733;
+  background: #f4f7f9;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-header {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #d4dde3;
+  background: #ffffff;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.app-tagline {
+  margin: 0.1rem 0 0;
+  font-size: 0.8rem;
+  color: #4a5a68;
+}
+
+.app-status {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: #34526e;
+}
+
+.app-status-error {
+  color: #8a2b1d;
+}
+
+.app-map {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.map-container {
+  position: absolute;
+  inset: 0;
+}
+
+.map-fallback {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  text-align: center;
+  color: #4a5a68;
+  font-size: 0.9rem;
+}
+
+.attribution-bar {
+  padding: 0.35rem 1rem;
+  border-top: 1px solid #d4dde3;
+  background: #ffffff;
+  font-size: 0.72rem;
+  color: #4a5a68;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
+
+.attribution-bar a {
+  color: #23557d;
+}
+
+.error-boundary {
+  padding: 2rem;
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+@media (max-width: 600px) {
+  .app-header {
+    padding: 0.4rem 0.75rem;
+  }
+
+  .app-tagline {
+    display: none;
+  }
+
+  .attribution-bar {
+    padding: 0.3rem 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
