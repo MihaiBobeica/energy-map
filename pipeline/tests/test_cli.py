@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from energy_map_pipeline.cli import PLANNED_STAGES, main, verify_output
+from energy_map_pipeline.cli import IMPLEMENTED_STAGES, PLANNED_STAGES, main, verify_output
 
 
 class TestCli:
@@ -12,7 +12,7 @@ class TestCli:
         assert "not implemented" in captured.err
         assert "phase" in captured.err
 
-    def test_every_planned_stage_is_registered(self):
+    def test_every_stage_is_registered(self):
         expected = {
             "download",
             "normalize",
@@ -28,8 +28,9 @@ class TestCli:
             "export-static",
             "build-coverage-report",
             "verify-licenses",
+            "verify-output",
         }
-        assert set(PLANNED_STAGES) == expected
+        assert set(PLANNED_STAGES) | set(IMPLEMENTED_STAGES) == expected
 
     def test_version_flag(self, capsys):
         with pytest.raises(SystemExit) as excinfo:
