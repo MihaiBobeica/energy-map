@@ -17,8 +17,11 @@ const CHOROPLETH_COLORS = [MISSING_COLOR, ...BUCKET_COLORS]
 
 /** Overlays painted above the canvas; their pixels are not map output. */
 const OVERLAY_SELECTORS = [
-  ".control-card",
-  ".legend",
+  // The rail contains the colour key, whose swatches use the exact palette we
+  // classify against — if it is not masked, an empty map still "passes".
+  ".rail",
+  ".card",
+  ".scale-key",
   ".country-panel",
   ".map-tooltip",
   ".data-error",

@@ -54,6 +54,13 @@ Demand is cut by product scope only — its 1990–1999 data is fully licensed a
 could be republished. See
 [docs/data-source-register.md](docs/data-source-register.md).
 
+Values can be shown as **totals (TWh) or per capita (kWh per person)**. Per
+capita is derived at render time from UN World Population Prospects estimates,
+so it carries a weaker evidence label than the electricity data itself
+("observed electricity ÷ reconstructed population"). Population estimates stop
+in 2023 while electricity data runs to 2025, so the per-capita timeline is
+visibly shorter — those years are marked unavailable, never extrapolated.
+
 **Three map states, deliberately distinct:** not reported (grey), reported
 zero (white) and bucketed positive values. Over half of all published source
 cells are exactly zero, so conflating "generates none" with "never reported"

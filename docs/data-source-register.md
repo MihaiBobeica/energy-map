@@ -91,6 +91,47 @@ pipeline; `—` means not yet retrieved.
   CC BY 4.0 and could be published if the product scope changed.
 - **Evidence classification:** `observed`
 
+### OWID-POP — Population (per-capita denominator)
+
+- **ID:** `owid-population`
+- **Page:** <https://ourworldindata.org/grapher/population>
+- **CSV:** <https://ourworldindata.org/grapher/population.csv?v=1&csvType=full&useColumnShortNames=false>
+- **Indicator:** 953903 ("Population (historical)"), lastUpdated 2024-07-15
+- **Licence status:** `verified`
+- **Licences (two instruments, verified 2026-08-05):**
+  - Upstream data — **UN World Population Prospects 2024**, `CC BY 3.0 IGO`
+    (<http://creativecommons.org/licenses/by/3.0/igo/>). Confirmed at primary
+    source from the official publication's copyright page, which permits
+    reproduction under CC BY 3.0 IGO. Note this is an IGO port, not CC BY 4.0.
+  - OWID processing layer — `CC BY 4.0`
+    (<https://creativecommons.org/licenses/by/4.0/>), per OWID's FAQ.
+  - Caveat: the UN data-download page is a JavaScript application that returns
+    404 to non-browser fetches, so the notice attached to the data _files_
+    could not be read directly; the licence rests on the publication copyright
+    page plus OWID's indicator metadata.
+- **Retrieved:** 2026-08-05
+- **Temporal coverage:** source 10,000 BCE–2023; **published 2000–2023**
+- **Evidence classification:** `reconstructed`. UN WPP "estimates" are
+  cohort-component reconstructions that reconcile censuses, vital registration
+  and surveys onto a common reference date, and each revision restates past
+  years. They are not annual observed headcounts, so labelling them `observed`
+  would be a category error.
+- **Use:** denominator for per-capita only; never displayed as a metric.
+  A derived per-capita value inherits the weaker evidence type of its
+  inputs — `reconstructed`, not `observed` — and the UI says so.
+- **Coverage gap:** no population estimates exist after 2023, while electricity
+  data runs to 2025. Per-capita is therefore **unavailable** for 2024–2025
+  rather than extrapolated, and the timeline shortens in that view.
+- **Rejected alternative:** the `population` column inside
+  `owid-energy-data.csv` reaches 2025, but it silently concatenates estimates
+  with UN WPP medium-variant **projections** (verified: 2024–2025 values are
+  byte-identical to the projection indicator). Using it would publish
+  projections as observed data.
+- **Not credited:** HYDE and Gapminder are also listed as producers on this
+  indicator, but contribute no value in the published 2000–2023 span (verified
+  cell-by-cell against the pure UN WPP indicator), so they are not credited —
+  the same reasoning applied to the Energy Institute.
+
 ### OWID-MIX — Electricity production by source
 
 - **ID:** `owid-electricity-by-source`

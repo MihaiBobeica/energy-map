@@ -36,23 +36,37 @@ describe("parseUrlState", () => {
   it("parses valid parameters including the energy source", () => {
     expect(
       parseUrlState("?metric=electricity-generation&source=solar&year=2010&country=nld"),
-    ).toEqual({ metric: "electricity-generation", source: "solar", year: 2010, country: "NLD" })
+    ).toEqual({
+      metric: "electricity-generation",
+      source: "solar",
+      basis: null,
+      year: 2010,
+      country: "NLD",
+    })
   })
 
   it("drops invalid parameters instead of breaking", () => {
     expect(parseUrlState("?metric=<script>&source=Coal!&year=notayear&country=x")).toEqual({
       metric: null,
       source: null,
+      basis: null,
       year: null,
       country: null,
     })
     expect(parseUrlState("?year=1650")).toEqual({
       metric: null,
       source: null,
+      basis: null,
       year: null,
       country: null,
     })
-    expect(parseUrlState("")).toEqual({ metric: null, source: null, year: null, country: null })
+    expect(parseUrlState("")).toEqual({
+      metric: null,
+      source: null,
+      basis: null,
+      year: null,
+      country: null,
+    })
   })
 })
 
@@ -61,20 +75,29 @@ describe("buildSearch", () => {
     const search = buildSearch({
       metric: "electricity-generation",
       source: "solar",
-      year: 2024,
+      basis: "per-capita",
+      year: 2023,
       country: "USA",
     })
     expect(parseUrlState(search)).toEqual({
       metric: "electricity-generation",
       source: "solar",
-      year: 2024,
+      basis: "per-capita",
+      year: 2023,
       country: "USA",
     })
   })
 
-  it("omits source and country when they are not set", () => {
-    const search = buildSearch({ metric: "m", source: null, year: 2024, country: null })
+  it("omits source, basis and country when they are at their defaults", () => {
+    const search = buildSearch({
+      metric: "m",
+      source: null,
+      basis: "total",
+      year: 2024,
+      country: null,
+    })
     expect(search).not.toContain("source")
+    expect(search).not.toContain("basis")
     expect(search).not.toContain("country")
   })
 })
@@ -84,6 +107,7 @@ describe("resolveState", () => {
     const resolved = resolveState(DATASETS, {
       metric: null,
       source: null,
+      basis: null,
       year: null,
       country: null,
     })
@@ -95,6 +119,7 @@ describe("resolveState", () => {
     const resolved = resolveState(DATASETS, {
       metric: "electricity-generation",
       source: "coal",
+      basis: null,
       year: null,
       country: null,
     })
@@ -106,6 +131,7 @@ describe("resolveState", () => {
     const resolved = resolveState(DATASETS, {
       metric: "electricity-demand",
       source: "solar",
+      basis: null,
       year: null,
       country: null,
     })
@@ -116,6 +142,7 @@ describe("resolveState", () => {
     const resolved = resolveState(DATASETS, {
       metric: "electricity-generation",
       source: "unobtanium",
+      basis: null,
       year: null,
       country: null,
     })
@@ -126,6 +153,7 @@ describe("resolveState", () => {
     const resolved = resolveState(DATASETS, {
       metric: "electricity-demand",
       source: null,
+      basis: null,
       year: 2003,
       country: "NLD",
     })
@@ -134,7 +162,9 @@ describe("resolveState", () => {
   })
 
   it("returns null when no datasets exist", () => {
-    expect(resolveState([], { metric: null, source: null, year: null, country: null })).toBeNull()
+    expect(
+      resolveState([], { metric: null, source: null, basis: null, year: null, country: null }),
+    ).toBeNull()
   })
 })
 

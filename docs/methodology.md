@@ -97,13 +97,13 @@ data, the UI states this explicitly.
 All derived metrics inherit the **weakest** evidence classification of their
 inputs and record a methodology ID.
 
-| Metric                  | Formula                                           | Notes                                                                |
-| ----------------------- | ------------------------------------------------- | -------------------------------------------------------------------- |
-| Generation per capita   | generation ÷ population                           | population source and vintage recorded; null if either input missing |
-| Demand per capita       | demand ÷ population                               | same                                                                 |
-| Share of global total   | value ÷ world total for same metric/year          | world total must come from the same source family                    |
-| Net imports             | demand − generation (or source-reported net flow) | one documented sign convention: **positive = net importer**          |
-| Absolute/percent change | value(t) − value(t₀); ÷ value(t₀)                 | only between real time points; never across interpolations           |
+| Metric                  | Formula                                           | Notes                                                       |
+| ----------------------- | ------------------------------------------------- | ----------------------------------------------------------- |
+| Generation per capita   | generation (TWh) × 10⁹ ÷ population → kWh/person  | UN WPP population; null if either input missing; see below  |
+| Demand per capita       | demand (TWh) × 10⁹ ÷ population → kWh/person      | same                                                        |
+| Share of global total   | value ÷ world total for same metric/year          | world total must come from the same source family           |
+| Net imports             | demand − generation (or source-reported net flow) | one documented sign convention: **positive = net importer** |
+| Absolute/percent change | value(t) − value(t₀); ÷ value(t₀)                 | only between real time points; never across interpolations  |
 
 Unit conventions: electricity in TWh (display auto-scales to GWh/MWh);
 capacity in MW; primary energy in TWh (with source-original units recorded);
@@ -259,6 +259,26 @@ records per-source unreported counts, reported-zero counts, countries that
 never report a source, and how many country-years above 100 TWh have a gap.
 The country panel states explicitly when a country's mix is incomplete, so a
 share of "100%" is never read as "all electricity generated".
+
+### Per-capita values
+
+Per-capita is a display basis, not a separate dataset: the frontend divides an
+observed electricity total by a population estimate at render time. Three rules
+follow from that and are enforced in code:
+
+1. **Evidence downgrades.** A per-capita value is observed electricity divided
+   by a _reconstructed_ population estimate, so it inherits the weaker of the
+   two. The UI labels it "Observed electricity ÷ reconstructed population" and
+   never shows the plain "Observed" badge in this mode.
+2. **No denominator, no value.** Where population is missing the country is
+   painted as not reported — never as zero, and never with a carried-forward
+   or projected population. Population statistics lag electricity statistics,
+   so the most recent years have no denominator at all: the per-capita
+   timeline is the intersection of the two, and it is visibly shorter.
+3. **Its own scale.** kWh per person and TWh differ by orders of magnitude, so
+   per-capita has its own fixed bucket thresholds. The legend always states
+   the active unit, and switching basis repaints the map through the other
+   scale rather than reusing thresholds that would flatten the map.
 
 ### Reported zero vs unreported
 

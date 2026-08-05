@@ -7,10 +7,34 @@ test("atlas loads under /energy-map/ with controls, legend and default year", as
   await expect(page.getByRole("combobox", { name: "Metric" })).toBeVisible()
   await expect(page.getByRole("slider", { name: "Year" })).toBeVisible()
   // Default year is the latest broadly-covered year, not the sparse newest one.
-  await expect(page.locator(".control-card")).toContainText("2024")
+  await expect(page.locator(".rail")).toContainText("2024")
   await expect(page.getByLabel("Legend")).toBeVisible()
   await expect(page.getByLabel("Legend")).toContainText("Not reported")
   await expect(page.getByLabel("Legend")).toContainText("Zero TWh")
+})
+
+test("per capita is offered with a reason where no denominator exists", async ({ page }) => {
+  await page.goto("./")
+  // Default year 2024 has electricity data but no population estimate, so the
+  // option is disabled and says why — rather than silently blanking the map.
+  await expect(page.getByRole("radio", { name: "Per capita" })).toBeDisabled()
+  await expect(page.locator(".rail")).toContainText("population estimates end in 2023")
+
+  // The escape hatch switches basis and year together.
+  await page.getByRole("button", { name: /Show 2023 per person/ }).click()
+  await expect(page).toHaveURL(/basis=per-capita/)
+  await expect(page.getByTestId("year-value")).toHaveText("2023")
+  await expect(page.getByLabel("Legend")).toContainText("kWh per person")
+  await expect(page.locator(".rail")).toContainText("reconstructed population")
+})
+
+test("per capita loads directly from a URL and rescales the map", async ({ page }) => {
+  await page.goto("./?metric=electricity-generation&basis=per-capita&year=2023&country=ISL")
+  await expect(page.getByRole("radio", { name: "Per capita" })).toBeChecked()
+  await expect(page.getByLabel("Legend")).toContainText("kWh per person")
+  // Iceland is the world's highest per-capita generator by a wide margin.
+  await expect(page.locator(".country-panel")).toContainText("kWh per person")
+  await expect(page.locator(".country-panel")).toContainText("Population")
 })
 
 test("every published metric starts in 2000", async ({ page }) => {
@@ -72,7 +96,7 @@ test("URL state restores metric, year and selected country on load", async ({ pa
   await page.goto("./?metric=electricity-demand&year=2005&country=NLD")
   const select = page.getByRole("combobox", { name: "Metric" })
   await expect(select).toHaveValue("electricity-demand")
-  await expect(page.locator(".control-card")).toContainText("2005")
+  await expect(page.locator(".rail")).toContainText("2005")
   await expect(page.getByRole("heading", { name: "Netherlands" })).toBeVisible()
   // The panel shows evidence and source metadata for the observation.
   await expect(page.locator(".country-panel")).toContainText("Observed")

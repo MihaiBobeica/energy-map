@@ -8,7 +8,7 @@ import {
 } from "maplibre-gl"
 import { useEffect, useRef, useState } from "react"
 
-import { fillColorExpression, MISSING_COLOR } from "../utils/scale.ts"
+import { fillColorExpression, MISSING_COLOR, type ScaleDefinition } from "../utils/scale.ts"
 import { configureMaplibreWorker } from "./maplibreWorker.ts"
 import "maplibre-gl/dist/maplibre-gl.css"
 
@@ -34,6 +34,7 @@ type MapViewProps = {
   geojson: FeatureCollection | null
   valuesById: ReadonlyMap<number, number> | null
   selectedIso3: string | null
+  scale: ScaleDefinition
   attribution: string
   onHover: (info: HoverInfo | null) => void
   onSelect: (iso3: string | null) => void
@@ -52,6 +53,7 @@ export function MapView({
   geojson,
   valuesById,
   selectedIso3,
+  scale,
   attribution,
   onHover,
   onSelect,
@@ -63,10 +65,14 @@ export function MapView({
   const [layersReady, setLayersReady] = useState(false)
   const hoverRef = useRef(onHover)
   const selectRef = useRef(onSelect)
+  // Read at layer-creation time only; later changes go through setPaintProperty
+  // below so switching scale never rebuilds the map or its source.
+  const scaleRef = useRef(scale)
   useEffect(() => {
     hoverRef.current = onHover
     selectRef.current = onSelect
-  }, [onHover, onSelect])
+    scaleRef.current = scale
+  }, [onHover, onSelect, scale])
 
   useEffect(() => {
     const container = containerRef.current
@@ -120,7 +126,7 @@ export function MapView({
       source: SOURCE_ID,
       paint: {
         // Cast: expression built centrally so legend and map always agree.
-        "fill-color": fillColorExpression() as never,
+        "fill-color": fillColorExpression(scaleRef.current) as never,
         "fill-opacity": 1,
       },
     })
@@ -181,6 +187,14 @@ export function MapView({
     if (!map || !layersReady) return
     map.setFilter("countries-selected", ["==", ["get", "iso3"], selectedIso3 ?? ""])
   }, [layersReady, selectedIso3])
+
+  // Totals and per-capita values differ by orders of magnitude, so switching
+  // between them repaints with the other scale's thresholds.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !layersReady) return
+    map.setPaintProperty("countries-fill", "fill-color", fillColorExpression(scale) as never)
+  }, [layersReady, scale])
 
   useEffect(() => {
     const map = mapRef.current

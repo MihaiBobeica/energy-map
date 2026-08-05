@@ -1,27 +1,31 @@
 import type { FeatureCollection } from "geojson"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
-import { ControlCard } from "./components/ControlCard.tsx"
+import { ControlRail, type Basis } from "./components/ControlRail.tsx"
 import { CountryPanel } from "./components/CountryPanel.tsx"
-import { Legend } from "./components/Legend.tsx"
 import {
   loadCountriesGeojson,
   loadCountrySeries,
   loadGeographyIndex,
+  loadPopulation,
   loadYearFile,
   type CountrySeries,
   type GeographyIndex,
+  type PopulationData,
   type YearFile,
 } from "./data/loaders.ts"
 import { findDataset, type DataManifest } from "./data/manifest.ts"
+import { perCapita, perCapitaYears } from "./domain/perCapita.ts"
 import { useManifest } from "./hooks/useManifest.ts"
 import { MapView, type HoverInfo } from "./map/MapView.tsx"
 import { buildSearch, parseUrlState, resolveState } from "./state/urlState.ts"
 import { formatValue } from "./utils/format.ts"
+import { PER_CAPITA_SCALE, TOTAL_SCALE } from "./utils/scale.ts"
 
 const ATTRIBUTION =
   'Electricity data: <a href="https://ember-energy.org/">Ember</a> (CC BY 4.0) via ' +
-  '<a href="https://ourworldindata.org/energy">Our World in Data</a> · Boundaries: ' +
+  '<a href="https://ourworldindata.org/energy">Our World in Data</a> · Population: ' +
+  '<a href="https://population.un.org/wpp/">UN WPP</a> (CC BY 3.0 IGO) · Boundaries: ' +
   '<a href="https://www.naturalearthdata.com/">Natural Earth</a> (public domain, 1:50m)'
 
 const PLAYBACK_MS = 700
@@ -72,6 +76,7 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
   )
 
   const [datasetId, setDatasetId] = useState(initial?.dataset.id ?? "")
+  const [basis, setBasis] = useState<Basis>(initial?.basis ?? "total")
   const [year, setYear] = useState(initial?.year ?? 0)
   const [selectedIso3, setSelectedIso3] = useState<string | null>(initial?.country ?? null)
   const [playing, setPlaying] = useState(false)
@@ -84,6 +89,7 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
 
   const [geojson, setGeojson] = useState<FeatureCollection | null>(null)
   const [geoIndex, setGeoIndex] = useState<GeographyIndex | null>(null)
+  const [population, setPopulation] = useState<PopulationData | null>(null)
   const [yearState, setYearState] = useState<YearState>({ key: "", file: null })
   const [seriesState, setSeriesState] = useState<SeriesState>({ key: "", data: null })
   // One slot per loader. A shared slot let a successful year load erase an
@@ -95,12 +101,25 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
   const dataError = errors.geometry ?? errors.year
 
   const yearKey = dataset ? `${dataset.path}/${year}` : ""
-  // Stale-while-loading: keep painting the previous year until the new file
-  // arrives, and surface a loading indicator via the key mismatch.
   const yearFile = yearState.file
   const yearLoading = yearKey !== "" && yearState.key !== yearKey
 
-  // --- static geometry -------------------------------------------------
+  // Per-capita exists only where a denominator does. Population statistics lag
+  // electricity statistics, so the newest year or two has none — those years
+  // leave the timeline in this view rather than being extrapolated.
+  const populationYears = useMemo(
+    () => new Set(manifest.population?.years ?? []),
+    [manifest.population],
+  )
+  const availableYears = useMemo(() => {
+    if (!dataset) return []
+    return basis === "per-capita" ? perCapitaYears(dataset.years, populationYears) : dataset.years
+  }, [dataset, basis, populationYears])
+  const perCapitaLastYear = manifest.population?.years.at(-1) ?? null
+  const perCapitaSupportedForYear = populationYears.has(year)
+  const perCapitaOffered = manifest.population !== null && populationYears.size > 0
+
+  // --- static geometry + population ------------------------------------
   useEffect(() => {
     if (!manifest.countriesGeojsonPath || !manifest.geographyIndexPath) return
     let cancelled = false
@@ -124,6 +143,23 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
       cancelled = true
     }
   }, [manifest.countriesGeojsonPath, manifest.geographyIndexPath])
+
+  useEffect(() => {
+    const path = manifest.population?.path
+    if (!path) return
+    let cancelled = false
+    loadPopulation(path)
+      .then((data) => {
+        if (!cancelled) setPopulation(data)
+      })
+      .catch(() => {
+        // Per-capita simply stays unavailable; the absolute map is unaffected.
+        if (!cancelled) setPopulation(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [manifest.population?.path])
 
   // --- per-year values -------------------------------------------------
   useEffect(() => {
@@ -176,21 +212,22 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
     const search = buildSearch({
       metric: dataset.metric,
       source: dataset.energySource,
+      basis,
       year,
       country: selectedIso3,
     })
     if (search !== window.location.search) {
       window.history.replaceState(null, "", `${window.location.pathname}${search}`)
     }
-  }, [dataset, year, selectedIso3])
+  }, [dataset, basis, year, selectedIso3])
 
   // --- playback --------------------------------------------------------
   useEffect(() => {
-    if (!playing || !dataset) return
+    if (!playing || availableYears.length === 0) return
     const timer = window.setInterval(() => {
       setYear((current) => {
-        const index = dataset.years.indexOf(current)
-        const next = dataset.years[index + 1]
+        const index = availableYears.indexOf(current)
+        const next = availableYears[index + 1]
         if (next === undefined) {
           setPlaying(false)
           return current
@@ -199,22 +236,33 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
       })
     }, PLAYBACK_MS)
     return () => window.clearInterval(timer)
-  }, [playing, dataset])
+  }, [playing, availableYears])
+
+  const populationFor = useCallback(
+    (iso3: string) => population?.values.get(iso3)?.get(year) ?? null,
+    [population, year],
+  )
 
   const valuesById = useMemo(() => {
     if (!yearFile || !geoIndex) return null
     const map = new Map<number, number>()
     for (const [iso3, value] of Object.entries(yearFile.values)) {
       const entry = geoIndex.byIso3.get(iso3)
-      if (entry) map.set(entry.id, value)
+      if (!entry) continue
+      if (basis === "per-capita") {
+        const derived = perCapita(value, population?.values.get(iso3)?.get(year) ?? null)
+        // No denominator means no value — the country reads as not reported
+        // rather than being silently dropped to zero.
+        if (derived !== null) map.set(entry.id, derived)
+      } else {
+        map.set(entry.id, value)
+      }
     }
     return map
-  }, [yearFile, geoIndex])
+  }, [yearFile, geoIndex, basis, population, year])
 
   const handleSelectDataset = useCallback(
     (metric: string, energySource: string | null) => {
-      // Falling back to the metric total keeps the selector usable when a
-      // metric does not offer the currently-selected source.
       const next =
         findDataset(datasets, metric, energySource) ?? findDataset(datasets, metric, null)
       if (!next) return
@@ -222,6 +270,22 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
       setYear((current) => (next.years.includes(current) ? current : next.defaultYear))
     },
     [datasets],
+  )
+
+  const handleBasisChange = useCallback(
+    (nextBasis: Basis) => {
+      setBasis(nextBasis)
+      if (nextBasis === "per-capita") {
+        // Clamp rather than blank the map: moving to the newest year that has
+        // a denominator is visible and reversible, an empty map is neither.
+        setYear((current) => {
+          if (populationYears.has(current)) return current
+          const usable = dataset ? perCapitaYears(dataset.years, populationYears) : []
+          return usable.at(-1) ?? current
+        })
+      }
+    },
+    [dataset, populationYears],
   )
 
   const handleHover = useCallback((info: HoverInfo | null) => setHover(info), [])
@@ -235,14 +299,33 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
     )
   }
 
-  const hoverValue = hover && yearFile ? (yearFile.values[hover.iso3] ?? null) : null
+  const scale = basis === "per-capita" ? PER_CAPITA_SCALE : TOTAL_SCALE
+  const rawHoverValue = hover && yearFile ? (yearFile.values[hover.iso3] ?? null) : null
+  const hoverValue =
+    basis === "per-capita"
+      ? perCapita(rawHoverValue, hover ? populationFor(hover.iso3) : null)
+      : rawHoverValue
+  const rawSelectedValue = selectedIso3 && yearFile ? (yearFile.values[selectedIso3] ?? null) : null
+  const selectedValue =
+    basis === "per-capita"
+      ? perCapita(rawSelectedValue, selectedIso3 ? populationFor(selectedIso3) : null)
+      : rawSelectedValue
   const selectedName =
     selectedIso3 && geoIndex ? (geoIndex.byIso3.get(selectedIso3)?.name ?? selectedIso3) : null
+
   const datasetLabel =
     dataset.energySource === null
       ? dataset.metricTitle
       : `${dataset.metricTitle} from ${dataset.title}`
-  const announcement = `${datasetLabel}, ${year}${selectedName ? `, ${selectedName}` : ""}`
+  // A per-capita figure is observed electricity divided by a reconstructed
+  // population estimate, so it inherits the weaker of the two.
+  const evidenceLine =
+    basis === "per-capita"
+      ? `Observed electricity ÷ reconstructed population · ${availableYears[0]}–${availableYears.at(-1)} · country resolution`
+      : `Observed data · ${dataset.years[0]}–${dataset.years.at(-1)} · country resolution`
+  const announcement = `${datasetLabel}, ${basis === "per-capita" ? "per capita" : "total"}, ${year}${
+    selectedName ? `, ${selectedName}` : ""
+  }`
 
   return (
     <div className="atlas">
@@ -250,23 +333,29 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
         geojson={geojson}
         valuesById={valuesById}
         selectedIso3={selectedIso3}
+        scale={scale}
         attribution={ATTRIBUTION}
         onHover={handleHover}
         onSelect={handleSelect}
       />
 
-      <ControlCard
+      <ControlRail
         datasets={datasets}
         dataset={dataset}
+        basis={basis}
+        scale={scale}
         year={year}
+        years={availableYears}
         playing={playing}
         loading={yearLoading}
+        evidenceLine={evidenceLine}
+        perCapitaAvailable={perCapitaOffered && perCapitaSupportedForYear}
+        perCapitaLastYear={perCapitaOffered ? perCapitaLastYear : null}
         onSelectDataset={handleSelectDataset}
+        onBasisChange={handleBasisChange}
         onYearChange={setYear}
         onTogglePlay={() => setPlaying((current) => !current)}
       />
-
-      <Legend unit={dataset.unit} />
 
       {dataError && (
         <div className="data-error" role="alert">
@@ -282,14 +371,10 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
         >
           <strong>{hover.name}</strong>
           <br />
-          {dataset.energySource === null
-            ? dataset.metricTitle
-            : `${dataset.metricTitle} — ${dataset.title}`}
-          , {year}: {formatValue(hoverValue, dataset.unit)}
+          {datasetLabel}, {year}: {formatValue(hoverValue, scale.unit)}
           <br />
           <span className="tooltip-meta">
-            {hoverValue === null ? "No reported value" : "Observed · Ember via OWID"} · country
-            resolution
+            {hoverValue === null ? "No reported value" : evidenceLine}
           </span>
         </div>
       )}
@@ -300,9 +385,13 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
           name={selectedName}
           dataset={dataset}
           datasets={datasets}
+          basis={basis}
+          scale={scale}
+          availableYears={availableYears}
           year={year}
-          value={yearFile ? (yearFile.values[selectedIso3] ?? null) : null}
-          worldTotal={yearFile?.worldTotal ?? null}
+          value={selectedValue}
+          worldTotal={basis === "per-capita" ? null : (yearFile?.worldTotal ?? null)}
+          population={populationFor(selectedIso3)}
           series={series}
           onSelectSource={(energySource) => handleSelectDataset(dataset.metric, energySource)}
           onClose={() => setSelectedIso3(null)}

@@ -43,6 +43,16 @@ const manifest = {
   geographyIndexPath: "geography-index.json",
   countrySeriesPathTemplate: "country-series/{iso3}.json",
   worldSeriesPath: "world-series.json",
+  // Population stops before the electricity data does, exactly as in the real
+  // build, so the per-capita year domain is genuinely shorter.
+  population: {
+    path: "population.json",
+    years: [2000, 2024],
+    sourceId: "owid-population",
+    datasetVersion: "2024-07-15",
+    evidenceType: "reconstructed",
+    unit: "people",
+  },
   datasets: [
     {
       id: "electricity-generation",
@@ -173,6 +183,15 @@ function stubFetchRoutes() {
       if (url.endsWith("geography-index.json")) return respond(geographyIndex)
       const yearMatch = /years\/([a-z-]+)\/(\d{4})\.json$/.exec(url)
       if (yearMatch) return respond(yearFile(yearMatch[1]!, Number(yearMatch[2])))
+      if (url.endsWith("population.json"))
+        return respond({
+          datasetVersion: "2024-07-15",
+          evidenceType: "reconstructed",
+          sourceId: "owid-population",
+          unit: "people",
+          values: { USA: { "2000": 282000000, "2024": 342000000 } },
+          years: [2000, 2024],
+        })
       if (url.includes("country-series/")) return respond(countrySeries)
       return new Response("not found", { status: 404 })
     }),
@@ -197,7 +216,7 @@ describe("Atlas UI", () => {
     expect(screen.getByRole("combobox", { name: "Metric" })).toBeInTheDocument()
     expect(screen.getByRole("slider", { name: "Year" })).toBeInTheDocument()
     // defaultYear from the manifest, not the sparse latest year
-    expect(screen.getByText("2024")).toBeInTheDocument()
+    expect(screen.getByTestId("year-value")).toHaveTextContent("2024")
     expect(screen.getByLabelText("Legend")).toBeInTheDocument()
     expect(screen.getByText("Not reported")).toBeInTheDocument()
     expect(screen.getByText("Zero TWh")).toBeInTheDocument()
@@ -213,7 +232,7 @@ describe("Atlas UI", () => {
 
     fireEvent.change(select, { target: { value: "electricity-demand" } })
     expect((select as HTMLSelectElement).value).toBe("electricity-demand")
-    expect(screen.getByText("2024")).toBeInTheDocument()
+    expect(screen.getByTestId("year-value")).toHaveTextContent("2024")
     expect(window.location.search).toContain("metric=electricity-demand")
   })
 
@@ -225,7 +244,7 @@ describe("Atlas UI", () => {
     const select = await screen.findByRole("combobox", { name: "Metric" })
     expect((select as HTMLSelectElement).value).toBe("electricity-demand")
     // 1993 predates the published span; snaps to the nearest real time point
-    expect(screen.getByText("2000")).toBeInTheDocument()
+    expect(screen.getByTestId("year-value")).toHaveTextContent("2000")
     // country=usa is invalid (lowercase is normalized), panel opens for USA
     expect(await screen.findByRole("heading", { name: "United States" })).toBeInTheDocument()
   })
@@ -286,6 +305,52 @@ describe("Atlas UI", () => {
     expect(within(mix).getByText("not reported")).toBeInTheDocument()
     // And the panel must say the total therefore understates generation.
     expect(screen.getByText(/understates actual/)).toBeInTheDocument()
+  })
+
+  it("switches to per-capita, changing unit, scale and URL", async () => {
+    stubFetchRoutes()
+    render(<App />)
+
+    const perCapita = await screen.findByRole("radio", { name: "Per capita" })
+    fireEvent.click(perCapita)
+
+    expect(window.location.search).toContain("basis=per-capita")
+    // The legend's zero label follows the active unit.
+    expect(await screen.findByText("Zero kWh per person")).toBeInTheDocument()
+  })
+
+  it("shrinks the timeline to years that have a population denominator", async () => {
+    // 2025 has electricity data but no population, so it must leave the
+    // per-capita timeline rather than render as blank or be extrapolated.
+    window.history.replaceState(null, "", "/?metric=electricity-generation&year=2025")
+    stubFetchRoutes()
+    render(<App />)
+
+    expect(await screen.findByTestId("year-value")).toHaveTextContent("2025")
+    const perCapita = screen.getByRole("radio", { name: "Per capita" })
+    // Unavailable at 2025 — but offered with a stated reason, not hidden.
+    expect(perCapita).toBeDisabled()
+    expect(screen.getByText(/population estimates end in 2024/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: /Show 2024 per person/ }))
+    expect(await screen.findByTestId("year-value")).toHaveTextContent("2024")
+    expect(screen.getByRole("radio", { name: "Per capita" })).toBeChecked()
+  })
+
+  it("labels a per-capita value as derived, not plainly observed", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/?metric=electricity-generation&basis=per-capita&year=2024&country=USA",
+    )
+    stubFetchRoutes()
+    render(<App />)
+
+    expect(await screen.findByRole("heading", { name: "United States" })).toBeInTheDocument()
+    // Stated in both the rail subtitle and the panel's evidence badge.
+    expect(screen.getAllByText(/Observed electricity ÷ reconstructed population/)).toHaveLength(2)
+    // 4200.25 TWh over 342,000,000 people ≈ 12,281 kWh each.
+    expect(screen.getByText(/12,280/)).toBeInTheDocument()
   })
 
   it("shows an explicit failure state with retry when the manifest cannot load", async () => {

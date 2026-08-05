@@ -3,6 +3,7 @@ import { findDataset, type ManifestDataset } from "../data/manifest.ts"
 export type UrlState = {
   metric: string | null
   source: string | null
+  basis: "total" | "per-capita" | null
   year: number | null
   country: string | null
 }
@@ -21,6 +22,9 @@ export function parseUrlState(search: string): UrlState {
   const sourceRaw = params.get("source")
   const source = sourceRaw && SLUG_RE.test(sourceRaw) ? sourceRaw : null
 
+  const basisRaw = params.get("basis")
+  const basis = basisRaw === "per-capita" || basisRaw === "total" ? basisRaw : null
+
   const yearRaw = params.get("year")
   const yearParsed = yearRaw ? Number.parseInt(yearRaw, 10) : Number.NaN
   const year =
@@ -29,12 +33,13 @@ export function parseUrlState(search: string): UrlState {
   const countryRaw = params.get("country")?.toUpperCase() ?? null
   const country = countryRaw && ISO3_RE.test(countryRaw) ? countryRaw : null
 
-  return { metric, source, year, country }
+  return { metric, source, basis, year, country }
 }
 
 export function buildSearch(state: {
   metric: string
   source: string | null
+  basis: "total" | "per-capita"
   year: number
   country: string | null
 }): string {
@@ -42,12 +47,18 @@ export function buildSearch(state: {
   params.set("metric", state.metric)
   // Omitted for whole-system totals so the common URL stays short.
   if (state.source) params.set("source", state.source)
+  if (state.basis === "per-capita") params.set("basis", "per-capita")
   params.set("year", String(state.year))
   if (state.country) params.set("country", state.country)
   return `?${params.toString()}`
 }
 
-export type ResolvedState = { dataset: ManifestDataset; year: number; country: string | null }
+export type ResolvedState = {
+  dataset: ManifestDataset
+  basis: "total" | "per-capita"
+  year: number
+  country: string | null
+}
 
 /**
  * Resolves raw URL state against the manifest. An unknown metric falls back to
@@ -71,7 +82,7 @@ export function resolveState(datasets: ManifestDataset[], raw: UrlState): Resolv
 
   const year =
     raw.year === null ? dataset.defaultYear : snapToAvailableYear(dataset.years, raw.year)
-  return { dataset, year, country: raw.country }
+  return { dataset, basis: raw.basis ?? "total", year, country: raw.country }
 }
 
 export function snapToAvailableYear(years: number[], requested: number): number {
