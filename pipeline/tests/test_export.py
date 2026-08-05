@@ -4,7 +4,7 @@ import pytest
 
 from energy_map_pipeline.adapters import natural_earth, owid
 from energy_map_pipeline.cli import verify_output
-from energy_map_pipeline.export.static_site import export_static
+from energy_map_pipeline.export.static_site import ValidationError, export_static
 
 GEN_SPEC = owid.DATASETS["electricity-generation"]
 DEM_SPEC = owid.DATASETS["electricity-demand"]
@@ -20,6 +20,17 @@ Europe (OWID),OWID_EUR,2020,4000.0
 World,OWID_WRL,1999,14000.0
 World,OWID_WRL,2020,27000.5
 Kosovo,OWID_KOS,2020,6.5
+"""
+
+# Columns in the real OWID order; USA 2020 sums to 4200.25 to match GEN_CSV.
+# NLD leaves Nuclear EMPTY (missing) while Coal is a literal 0 — the two must
+# stay distinguishable all the way through export.
+BY_SOURCE_CSV = """Entity,Code,Year,Coal,Gas,Nuclear,Hydropower,Solar,Oil,Wind,Bioenergy,Other renewables
+United States,USA,1999,700.0,600.0,700.0,300.0,0,100.0,10.0,40.0,10.0
+United States,USA,2000,800.0,2000.0,753.5,300.0,1.0,100.0,25.0,15.0,5.0
+United States,USA,2020,773.39,1624.17,789.88,279.95,130.72,34.34,337.94,211.75,18.11
+Netherlands,NLD,2020,0,80.125,,0.1,15.0,1.0,20.0,3.9,0
+World,OWID_WRL,2020,9000.0,6000.0,2700.0,4300.0,850.0,750.0,1600.0,650.0,1150.5
 """
 
 
@@ -98,14 +109,23 @@ def raw_root(tmp_path):
     (raw / "owid/electricity-generation.csv").write_text(GEN_CSV, encoding="utf-8")
     (raw / "owid/electricity-demand.csv").write_text(
         "Entity,Code,Year,Electricity demand - TWh\n"
-        "United States,USA,1990,3000.0\n"
+        "United States,USA,1990,3000.0\n"  # dropped: product scope starts 2000
+        "United States,USA,2000,3500.0\n"
         "United States,USA,2020,4000.0\n"
         "World,OWID_WRL,2020,25000.0\n",
         encoding="utf-8",
     )
+    # Per-source rows sum exactly to the totals in GEN_CSV so the source-sum
+    # reconciliation check has something valid to compare against.
+    (raw / "owid/electricity-production-by-source.csv").write_text(
+        BY_SOURCE_CSV, encoding="utf-8"
+    )
     metadata = {"columns": {"x": {"lastUpdated": "2026-04-24"}}}
     (raw / "owid/electricity-generation.metadata.json").write_text(json.dumps(metadata))
     (raw / "owid/electricity-demand.metadata.json").write_text(json.dumps(metadata))
+    (raw / "owid/electricity-production-by-source.metadata.json").write_text(
+        json.dumps(metadata)
+    )
 
     rows = [
         ({"ISO_A3": "USA"}, "United States"),
@@ -148,7 +168,7 @@ class TestExportStatic:
             [2020, 4200.25],
         ]
         assert series["series"]["electricity-demand"]["points"] == [
-            [1990, 3000.0],
+            [2000, 3500.0],
             [2020, 4000.0],
         ]
 
@@ -159,6 +179,127 @@ class TestExportStatic:
 
         # verify-output accepts the export, including checksums
         assert verify_output(out) == 0
+
+    def test_by_source_datasets_are_exported_with_metric_and_source(self, raw_root, tmp_path):
+        out = tmp_path / "public-data"
+        export_static(raw_root, out)
+        manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+        by_id = {d["id"]: d for d in manifest["datasets"]}
+
+        # All nine sources plus the two totals.
+        assert len(manifest["datasets"]) == 11
+        coal = by_id["electricity-generation-coal"]
+        assert coal["metric"] == "electricity-generation"
+        assert coal["energySource"] == "coal"
+        assert coal["title"] == "Coal"
+        assert coal["unit"] == "TWh"
+        # The total carries the same metric with no source, so the UI can
+        # group them into one metric with an "All sources" option.
+        assert by_id["electricity-generation"]["energySource"] is None
+        assert by_id["electricity-generation"]["metric"] == "electricity-generation"
+
+        year = json.loads(
+            (out / "years/electricity-generation-solar/2020.json").read_text(encoding="utf-8")
+        )
+        assert year["energySource"] == "solar"
+        assert year["metric"] == "electricity-generation"
+        assert year["values"]["USA"] == 130.72
+
+        series = json.loads((out / "country-series/USA.json").read_text(encoding="utf-8"))
+        assert series["series"]["electricity-generation-wind"]["points"] == [
+            [2000, 25.0],
+            [2020, 337.94],
+        ]
+
+    def test_zero_and_missing_stay_distinct_per_source(self, raw_root, tmp_path):
+        out = tmp_path / "public-data"
+        export_static(raw_root, out)
+        coal = json.loads(
+            (out / "years/electricity-generation-coal/2020.json").read_text(encoding="utf-8")
+        )
+        nuclear = json.loads(
+            (out / "years/electricity-generation-nuclear/2020.json").read_text(encoding="utf-8")
+        )
+        # NLD reports literal zero coal but no nuclear figure at all.
+        assert coal["values"]["NLD"] == 0.0
+        assert "NLD" not in nuclear["values"]
+
+    def test_everything_starts_in_2000(self, raw_root, tmp_path):
+        out = tmp_path / "public-data"
+        export_static(raw_root, out)
+        manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+        for dataset in manifest["datasets"]:
+            assert min(dataset["years"]) >= 2000, dataset["id"]
+        # Demand's 1990 row is dropped by product scope, not by licence, and
+        # the distinction is recorded.
+        coverage = json.loads((out / "coverage.json").read_text(encoding="utf-8"))
+        demand = next(r for r in coverage["records"] if r["metric"] == "electricity-demand")
+        assert demand["firstYear"] == 2000
+        assert any("PRODUCT SCOPE" in note for note in demand["notes"])
+        generation = next(
+            r
+            for r in coverage["records"]
+            if r["metric"] == "electricity-generation" and r["energySource"] is None
+        )
+        assert any("LICENCE" in note for note in generation["notes"])
+
+    def test_stale_files_from_a_previous_export_are_pruned(self, raw_root, tmp_path):
+        out = tmp_path / "public-data"
+        export_static(raw_root, out)
+        orphan = out / "years/electricity-demand/1995.json"
+        orphan.parent.mkdir(parents=True, exist_ok=True)
+        orphan.write_text('{"stale":true}', encoding="utf-8")
+
+        export_static(raw_root, out)
+        assert not orphan.exists(), "a narrowed year range must not leave orphan data on disk"
+        assert verify_output(out) == 0
+
+    def test_completeness_census_is_published(self, raw_root, tmp_path):
+        out = tmp_path / "public-data"
+        export_static(raw_root, out)
+        coverage = json.loads((out / "coverage.json").read_text(encoding="utf-8"))
+        completeness = coverage["sourceCompleteness"]
+        # NLD's nuclear cell is empty in the fixture.
+        assert completeness["unreportedCells"]["nuclear"] == 1
+        assert "NLD" in completeness["countriesNeverReporting"]["nuclear"]
+        # NLD reports literal zero coal, which is data, not a gap.
+        assert completeness["reportedZeroCells"]["coal"] >= 1
+        assert "completeness" in completeness["note"]
+
+    def test_by_source_header_drift_fails_loudly(self, raw_root, tmp_path):
+        path = raw_root / "owid/electricity-production-by-source.csv"
+        text = path.read_text(encoding="utf-8")
+        # A tenth source column would silently break the sum-vs-total identity.
+        path.write_text(text.replace("Other renewables", "Other renewables,Geothermal", 1), "utf-8")
+        with pytest.raises(owid.SchemaDriftError, match="unexpected header"):
+            export_static(raw_root, tmp_path / "public-data")
+
+    def test_negative_generation_is_rejected(self, raw_root, tmp_path):
+        path = raw_root / "owid/electricity-production-by-source.csv"
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text.replace(",130.72,", ",-130.72,", 1), encoding="utf-8")
+        with pytest.raises(ValidationError, match="negative generation"):
+            export_static(raw_root, tmp_path / "public-data")
+
+    def test_source_sum_mismatch_fails_loudly(self, raw_root, tmp_path):
+        # Halve every per-source value: the components no longer reconcile
+        # with the independently-sourced total, which must abort the export.
+        path = raw_root / "owid/electricity-production-by-source.csv"
+        rows = path.read_text(encoding="utf-8").splitlines()
+        header, body = rows[0], rows[1:]
+        rewritten = [header]
+        for row in body:
+            cells = row.split(",")
+            rewritten.append(
+                ",".join(
+                    cells[:3]
+                    + [("" if c == "" else str(float(c) / 2)) for c in cells[3:]]
+                )
+            )
+        path.write_text("\n".join(rewritten) + "\n", encoding="utf-8")
+
+        with pytest.raises(ValidationError, match="does not reconcile"):
+            export_static(raw_root, tmp_path / "public-data")
 
     def test_output_uses_lf_line_endings_on_every_platform(self, raw_root, tmp_path, capsys):
         out = tmp_path / "out"

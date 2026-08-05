@@ -19,11 +19,17 @@ from energy_map_pipeline.adapters.owid import DATASETS
 
 USER_AGENT = "energy-map-pipeline/0.1 (+https://github.com/MihaiBobeica/energy-map)"
 
+def _owid_downloads() -> dict[str, str]:
+    """One CSV + metadata pair per raw file; several datasets share a file."""
+    downloads: dict[str, str] = {}
+    for spec in DATASETS.values():
+        downloads[f"owid/{spec.raw_name}.csv"] = spec.csv_url
+        downloads[f"owid/{spec.raw_name}.metadata.json"] = spec.metadata_url
+    return downloads
+
+
 DOWNLOADS: dict[str, str] = {
-    "owid/electricity-generation.csv": DATASETS["electricity-generation"].csv_url,
-    "owid/electricity-generation.metadata.json": DATASETS["electricity-generation"].metadata_url,
-    "owid/electricity-demand.csv": DATASETS["electricity-demand"].csv_url,
-    "owid/electricity-demand.metadata.json": DATASETS["electricity-demand"].metadata_url,
+    **_owid_downloads(),
     "natural-earth/ne_50m_admin_0_countries.geojson": NE_50M_COUNTRIES_URL,
 }
 

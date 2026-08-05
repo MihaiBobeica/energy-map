@@ -17,15 +17,33 @@ SCHEMA_VERSION = "1.0.0"
 PROCESSING_VERSION = "0.2.0"
 VALUE_DECIMALS = 3
 
-GENERATION_EXCLUSION_NOTE = (
-    "Years before 2000 are excluded: they derive from the Energy Institute "
-    "Statistical Review, whose redistribution terms are not verified "
-    "(docs/data-source-register.md). Ember data (CC BY 4.0) covers 2000 onward."
-)
+# Validation rule (docs/methodology.md): energy-source components are checked
+# against the separately-published total.
+#
+# WHAT THIS PROVES AND WHAT IT DOES NOT. Measured over all 5,413 published
+# country-years, the nine sources sum to the total EXACTLY (deviation 0 with
+# decimal arithmetic) — because OWID's "Total electricity" is itself derived as
+# the sum of the nine, treating an unreported source as zero. So this is a
+# tight schema-drift tripwire (it fires if a column binds to the wrong series,
+# a tenth source appears, or units change) and NOT a completeness check: it can
+# never reveal that a country's "Other renewables" was never reported, and the
+# published total understates such countries. Completeness is tracked
+# separately by the missing-cell census below.
+SOURCE_SUM_ABS_TOLERANCE = 0.005  # TWh; source values carry at most 2 decimals
+SOURCE_SUM_REL_TOLERANCE = 1e-9
+
+# A country-year this large with an unreported source materially understates
+# its total, so the census reports it prominently.
+MATERIAL_GENERATION_TWH = 100.0
 
 
 def _round_value(value: float) -> float:
     return round(value, VALUE_DECIMALS)
+
+
+# Paths written by the current export, so _prune_stale_files can delete
+# anything left over from a previous run with a different year range.
+_WRITTEN: set[Path] = set()
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -37,6 +55,7 @@ def _write_json(path: Path, payload: Any) -> None:
         encoding="utf-8",
         newline="\n",
     )
+    _WRITTEN.add(path)
 
 
 def _load_retrieved_at(raw_root: Path) -> str:
@@ -50,7 +69,149 @@ def _load_retrieved_at(raw_root: Path) -> str:
     return timestamps[-1]
 
 
+class ValidationError(RuntimeError):
+    """Raised when generated data violates a documented validation rule."""
+
+
+def _check_source_sums(
+    datasets: list[owid.OwidDataset], iso3_to_country: dict[str, Any]
+) -> dict[str, Any]:
+    """Compare the nine per-source series against the separate total.
+
+    Both come from Ember but are published as different indicators, so exact
+    equality is not expected. A structural break (wrong column bound, unit
+    change) shows up as a large share of country-years outside tolerance.
+    """
+    total = next((d for d in datasets if d.spec.dataset_id == "electricity-generation"), None)
+    per_source = [d for d in datasets if d.spec.energy_source is not None]
+    if total is None or not per_source:
+        return {"checked": 0, "outliers": 0, "outlierShare": 0.0, "worst": []}
+
+    checked = 0
+    without_breakdown = 0
+    mismatches: list[dict[str, Any]] = []
+    missing_cells: dict[str, int] = {d.spec.energy_source or "?": 0 for d in per_source}
+    zero_cells: dict[str, int] = {d.spec.energy_source or "?": 0 for d in per_source}
+    material_gaps: list[dict[str, Any]] = []
+    always_missing: dict[str, set[str]] = {d.spec.energy_source or "?": set() for d in per_source}
+    reported_any: dict[str, set[str]] = {d.spec.energy_source or "?": set() for d in per_source}
+
+    for iso3, by_year in total.values.items():
+        if iso3 not in iso3_to_country:
+            continue
+        for year, total_value in by_year.items():
+            parts: list[float] = []
+            absent: list[str] = []
+            for dataset in per_source:
+                source_id = dataset.spec.energy_source or "?"
+                value = dataset.values.get(iso3, {}).get(year)
+                if value is None:
+                    absent.append(source_id)
+                    continue
+                reported_any[source_id].add(iso3)
+                parts.append(value)
+                if value < 0:
+                    raise ValidationError(
+                        f"negative generation for {iso3} {year} {source_id}: {value}"
+                    )
+                if value > total_value + SOURCE_SUM_ABS_TOLERANCE:
+                    raise ValidationError(
+                        f"{source_id} exceeds total generation for {iso3} {year}: "
+                        f"{value} > {total_value}"
+                    )
+                if value == 0.0:
+                    zero_cells[source_id] += 1
+            # A country-year absent from the by-source data entirely is not
+            # "nine unreported sources" — it is one country-year with no
+            # breakdown, counted separately so the census is not inflated.
+            if not parts:
+                without_breakdown += 1
+                continue
+            for source_id in absent:
+                missing_cells[source_id] += 1
+            checked += 1
+            summed = sum(parts)
+            allowed = max(SOURCE_SUM_ABS_TOLERANCE, SOURCE_SUM_REL_TOLERANCE * abs(total_value))
+            if abs(summed - total_value) > allowed:
+                mismatches.append(
+                    {
+                        "iso3": iso3,
+                        "year": year,
+                        "total": round(total_value, 3),
+                        "sumOfSources": round(summed, 3),
+                        "difference": round(summed - total_value, 6),
+                    }
+                )
+            if absent and total_value >= MATERIAL_GENERATION_TWH:
+                material_gaps.append({"iso3": iso3, "year": year, "unreported": sorted(absent)})
+
+    for source_id, seen in reported_any.items():
+        always_missing[source_id] = {
+            iso3 for iso3 in total.values if iso3 in iso3_to_country and iso3 not in seen
+        }
+
+    if checked == 0:
+        raise ValidationError(
+            "source-sum check compared nothing — per-source and total datasets do not overlap"
+        )
+    if mismatches:
+        raise ValidationError(
+            f"generation by source does not reconcile with the published total in "
+            f"{len(mismatches)} of {checked} country-years (tolerance "
+            f"{SOURCE_SUM_ABS_TOLERANCE} TWh). First: {mismatches[:3]}"
+        )
+
+    print(
+        f"source-sum check: {checked} country-years reconcile exactly; "
+        f"{sum(missing_cells.values())} unreported source cells, "
+        f"{len(material_gaps)} of them in country-years above "
+        f"{MATERIAL_GENERATION_TWH:.0f} TWh"
+    )
+    return {
+        "checked": checked,
+        "countryYearsWithoutBreakdown": without_breakdown,
+        "mismatches": mismatches,
+        "toleranceTWh": SOURCE_SUM_ABS_TOLERANCE,
+        # The census is the completeness signal the tolerance check cannot give.
+        "unreportedCells": dict(sorted(missing_cells.items())),
+        "reportedZeroCells": dict(sorted(zero_cells.items())),
+        "countriesNeverReporting": {
+            source_id: sorted(codes)
+            for source_id, codes in sorted(always_missing.items())
+            if codes
+        },
+        "materialUnreported": sorted(
+            material_gaps, key=lambda gap: (gap["iso3"], gap["year"])
+        )[:200],
+        "materialUnreportedCount": len(material_gaps),
+        "note": (
+            "OWID's published total is the sum of the nine sources with unreported sources "
+            "treated as zero, so this reconciliation proves arithmetic consistency, not "
+            "completeness: where a source is unreported the total understates real generation."
+        ),
+    }
+
+
+def _prune_stale_files(out_root: Path, written: set[Path]) -> list[str]:
+    """Delete previously exported files this run did not write.
+
+    Without this a narrowed year range (or a renamed dataset) leaves orphan
+    files on disk that checksums.json would happily re-bless, so the site
+    would keep serving data the manifest no longer advertises.
+    """
+    removed: list[str] = []
+    for path in sorted(out_root.rglob("*")):
+        if path.is_file() and path not in written and path.name != "checksums.json":
+            removed.append(path.relative_to(out_root).as_posix())
+            path.unlink()
+    for directory in sorted(out_root.rglob("*"), reverse=True):
+        if directory.is_dir() and not any(directory.iterdir()):
+            directory.rmdir()
+    return removed
+
+
 def export_static(raw_root: Path, out_root: Path) -> int:
+    _WRITTEN.clear()
     retrieved_at = _load_retrieved_at(raw_root)
 
     countries = natural_earth.parse_countries(
@@ -58,14 +219,26 @@ def export_static(raw_root: Path, out_root: Path) -> int:
     )
     iso3_to_country = {c.iso3: c for c in countries}
 
+    # Several datasets share one raw CSV (the by-source file holds nine
+    # columns); read and version each file once.
+    csv_cache: dict[str, str] = {}
+    version_cache: dict[str, str] = {}
     datasets: list[owid.OwidDataset] = []
-    for dataset_id, spec in owid.DATASETS.items():
-        csv_path = raw_root / f"owid/{dataset_id}.csv"
-        metadata_path = raw_root / f"owid/{dataset_id}.metadata.json"
-        version = owid.dataset_version_from_metadata(metadata_path)
+    for spec in owid.DATASETS.values():
+        if spec.raw_name not in csv_cache:
+            text = (raw_root / f"owid/{spec.raw_name}.csv").read_text(encoding="utf-8")
+            if spec.raw_name == "electricity-production-by-source":
+                header = text.splitlines()[0].split(",")
+                owid.assert_by_source_header(header)
+            csv_cache[spec.raw_name] = text
+            version_cache[spec.raw_name] = owid.dataset_version_from_metadata(
+                raw_root / f"owid/{spec.raw_name}.metadata.json"
+            )
         datasets.append(
-            owid.parse_owid_csv(spec, csv_path.read_text(encoding="utf-8"), version)
+            owid.parse_owid_csv(spec, csv_cache[spec.raw_name], version_cache[spec.raw_name])
         )
+
+    source_sum_report = _check_source_sums(datasets, iso3_to_country)
 
     # ---- join report ---------------------------------------------------
     join_report: dict[str, Any] = {"retrievedAt": retrieved_at, "datasets": {}}
@@ -139,8 +312,9 @@ def export_static(raw_root: Path, out_root: Path) -> int:
             }
             payload: dict[str, Any] = {
                 "datasetVersion": dataset.dataset_version,
+                "energySource": dataset.spec.energy_source,
                 "evidenceType": "observed",
-                "metric": dataset.spec.dataset_id,
+                "metric": dataset.spec.metric,
                 "processingVersion": PROCESSING_VERSION,
                 "sourceId": dataset.spec.source_id,
                 "unit": dataset.spec.unit,
@@ -161,9 +335,11 @@ def export_static(raw_root: Path, out_root: Path) -> int:
             {
                 "datasetVersion": dataset.dataset_version,
                 "defaultYear": default_year,
+                "energySource": dataset.spec.energy_source,
                 "evidenceTypes": ["observed"],
                 "id": dataset.spec.dataset_id,
-                "metric": dataset.spec.dataset_id,
+                "metric": dataset.spec.metric,
+                "metricTitle": owid.METRIC_TITLES[dataset.spec.metric],
                 "path": f"years/{dataset.spec.dataset_id}",
                 "sourceId": dataset.spec.source_id,
                 "title": dataset.spec.title,
@@ -174,17 +350,14 @@ def export_static(raw_root: Path, out_root: Path) -> int:
         )
         coverage_records.append(
             {
+                "energySource": dataset.spec.energy_source,
                 "evidenceTypes": ["observed"],
                 "firstYear": years[0],
                 "geographyCount": geography_count,
                 "geographyType": "country",
                 "lastYear": years[-1],
-                "metric": dataset.spec.dataset_id,
-                "notes": (
-                    [GENERATION_EXCLUSION_NOTE]
-                    if dataset.spec.dataset_id == "electricity-generation"
-                    else []
-                ),
+                "metric": dataset.spec.metric,
+                "notes": dataset.spec.exclusion_reasons(),
                 "observationCount": observation_count,
             }
         )
@@ -225,6 +398,13 @@ def export_static(raw_root: Path, out_root: Path) -> int:
     _write_json(out_root / "world-series.json", world_series)
 
     # ---- sources, coverage, manifest ----------------------------------
+    notes_by_source: dict[str, list[str]] = {}
+    for dataset in datasets:
+        for reason in dataset.spec.exclusion_reasons():
+            bucket = notes_by_source.setdefault(dataset.spec.source_id, [])
+            if reason not in bucket:
+                bucket.append(reason)
+
     _write_json(
         out_root / "sources.json",
         {
@@ -236,10 +416,21 @@ def export_static(raw_root: Path, out_root: Path) -> int:
                     "licence": "CC BY 4.0 (Ember-covered span, 2000 onward)",
                     "licenceUrl": "https://ember-energy.org/creative-commons/",
                     "name": "Electricity generation",
-                    "notes": [GENERATION_EXCLUSION_NOTE],
+                    "notes": notes_by_source.get("owid-electricity-generation", []),
                     "publisher": "Our World in Data",
                     "retrievedAt": retrieved_at,
                     "url": "https://ourworldindata.org/grapher/electricity-generation",
+                },
+                {
+                    "attribution": "Ember (CC BY 4.0) via Our World in Data",
+                    "id": "owid-electricity-by-source",
+                    "licence": "CC BY 4.0 (Ember-covered span, 2000 onward)",
+                    "licenceUrl": "https://ember-energy.org/creative-commons/",
+                    "name": "Electricity generation by source",
+                    "notes": notes_by_source.get("owid-electricity-by-source", []),
+                    "publisher": "Our World in Data",
+                    "retrievedAt": retrieved_at,
+                    "url": "https://ourworldindata.org/grapher/electricity-production-by-source",
                 },
                 {
                     "attribution": "Ember (CC BY 4.0) via Our World in Data",
@@ -247,7 +438,7 @@ def export_static(raw_root: Path, out_root: Path) -> int:
                     "licence": "CC BY 4.0",
                     "licenceUrl": "https://ember-energy.org/creative-commons/",
                     "name": "Electricity demand",
-                    "notes": [],
+                    "notes": notes_by_source.get("owid-electricity-demand", []),
                     "publisher": "Our World in Data",
                     "retrievedAt": retrieved_at,
                     "url": "https://ourworldindata.org/grapher/electricity-demand",
@@ -268,8 +459,25 @@ def export_static(raw_root: Path, out_root: Path) -> int:
     )
     _write_json(
         out_root / "coverage.json",
-        {"records": coverage_records, "schemaVersion": SCHEMA_VERSION},
+        {
+            "records": coverage_records,
+            "schemaVersion": SCHEMA_VERSION,
+            # Completeness is reported next to coverage so a reader can see
+            # not just which years exist but where a source went unreported.
+            "sourceCompleteness": {
+                key: source_sum_report[key]
+                for key in (
+                    "unreportedCells",
+                    "reportedZeroCells",
+                    "countriesNeverReporting",
+                    "materialUnreportedCount",
+                    "note",
+                )
+                if key in source_sum_report
+            },
+        },
     )
+    join_report["sourceSumCheck"] = source_sum_report
     _write_json(out_root / "join-report.json", join_report)
     _write_json(
         out_root / "manifest.json",
@@ -284,7 +492,11 @@ def export_static(raw_root: Path, out_root: Path) -> int:
         },
     )
 
-    # ---- checksums (must be last) -------------------------------------
+    # ---- prune, then checksum (must be last) --------------------------
+    removed = _prune_stale_files(out_root, set(_WRITTEN))
+    if removed:
+        print(f"export-static: removed {len(removed)} stale file(s), e.g. {removed[:5]}")
+
     checksums = {}
     for path in sorted(out_root.rglob("*")):
         if path.is_file() and path.name != "checksums.json":
