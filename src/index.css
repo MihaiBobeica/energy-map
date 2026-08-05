@@ -157,6 +157,10 @@ body {
 }
 
 .rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 13px 14px 0;
 }
 
@@ -165,6 +169,42 @@ body {
   font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+}
+
+/* --- collapsed rail -----------------------------------------------------
+   Hiding the controls must not hide what you are looking at, so the restore
+   button doubles as a caption for the current view. */
+
+.rail-restore {
+  top: 14px;
+  left: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  max-width: 260px;
+  padding: 9px 13px;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.rail-restore:hover {
+  background: var(--hover);
+}
+
+.rail-restore-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.rail-restore-state {
+  font-size: 0.75rem;
+  color: var(--ink-3);
 }
 
 .rail-subtitle {
@@ -824,6 +864,23 @@ body {
    fully visible — it is a licence term, not decoration — but it stops
    shouting: 6.3:1 text on a 90%-opaque plate. */
 
+/* Zoom sits above the attribution strip. Order is set explicitly rather than
+   left to DOM order, because MapLibre lays the bottom corners out in reverse
+   and the two controls are added by different effects. */
+.maplibregl-ctrl-bottom-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+  order: 1;
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
+  order: 2;
+}
+
 .maplibregl-ctrl-group {
   border-radius: 9px;
   background: var(--surface);
@@ -897,6 +954,13 @@ body {
 
   .rail-foot {
     padding: 8px 14px;
+  }
+
+  .rail-restore {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    max-width: none;
   }
 
   .rail-head {

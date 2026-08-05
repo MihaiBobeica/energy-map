@@ -379,6 +379,25 @@ describe("Atlas UI", () => {
     expect(screen.getByText(/12,280/)).toBeInTheDocument()
   })
 
+  it("hides and restores the controls, keeping the current view legible", async () => {
+    stubFetchRoutes()
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Hide controls" }))
+    expect(screen.queryByRole("combobox", { name: "Metric" })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("Legend")).not.toBeInTheDocument()
+
+    // The restore button says what is on screen, so hiding the controls does
+    // not also hide what you are looking at.
+    const restore = screen.getByRole("button", { name: "Show controls" })
+    expect(restore).toHaveTextContent("Electricity generation")
+    expect(restore).toHaveTextContent("2024")
+
+    fireEvent.click(restore)
+    expect(screen.getByRole("combobox", { name: "Metric" })).toBeInTheDocument()
+    expect(screen.getByLabelText("Legend")).toBeInTheDocument()
+  })
+
   it("shows an explicit failure state with retry when the manifest cannot load", async () => {
     vi.stubGlobal(
       "fetch",

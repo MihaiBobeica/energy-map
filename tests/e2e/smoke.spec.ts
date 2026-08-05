@@ -117,3 +117,26 @@ test("attribution for data and boundaries is visible", async ({ page }) => {
   await expect(page.locator(".maplibregl-ctrl-attrib")).toContainText("Ember")
   await expect(page.locator(".maplibregl-ctrl-attrib")).toContainText("Natural Earth")
 })
+
+test("zoom buttons sit above the attribution bar", async ({ page }) => {
+  await page.goto("./")
+  const zoom = await page.locator(".maplibregl-ctrl-group").boundingBox()
+  const attribution = await page.locator(".maplibregl-ctrl-attrib").boundingBox()
+  expect(zoom).not.toBeNull()
+  expect(attribution).not.toBeNull()
+  expect(zoom!.y + zoom!.height).toBeLessThanOrEqual(attribution!.y + 1)
+})
+
+test("controls can be hidden for a clean map and brought back", async ({ page }) => {
+  await page.goto("./")
+  await page.getByRole("button", { name: "Hide controls" }).click()
+  await expect(page.locator(".rail")).toHaveCount(0)
+
+  // The map keeps working while the controls are away.
+  await expect(page.locator(".map-container canvas")).toBeVisible()
+
+  const restore = page.getByRole("button", { name: "Show controls" })
+  await expect(restore).toContainText("2024")
+  await restore.click()
+  await expect(page.getByRole("combobox", { name: "Metric" })).toBeVisible()
+})

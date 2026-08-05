@@ -81,6 +81,7 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
   const [selectedIso3, setSelectedIso3] = useState<string | null>(initial?.country ?? null)
   const [playing, setPlaying] = useState(false)
   const [hover, setHover] = useState<HoverInfo | null>(null)
+  const [railOpen, setRailOpen] = useState(true)
 
   const dataset = useMemo(
     () => datasets.find((candidate) => candidate.id === datasetId) ?? datasets[0] ?? null,
@@ -346,21 +347,41 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
         onSelect={handleSelect}
       />
 
-      <ControlRail
-        datasets={datasets}
-        dataset={dataset}
-        basis={basis}
-        scale={scale}
-        year={year}
-        years={availableYears}
-        playing={playing}
-        loading={yearLoading}
-        perCapitaAvailable={perCapitaOffered && perCapitaSupportedForYear}
-        onSelectDataset={handleSelectDataset}
-        onBasisChange={handleBasisChange}
-        onYearChange={setYear}
-        onTogglePlay={() => setPlaying((current) => !current)}
-      />
+      {railOpen ? (
+        <ControlRail
+          datasets={datasets}
+          dataset={dataset}
+          basis={basis}
+          scale={scale}
+          year={year}
+          years={availableYears}
+          playing={playing}
+          loading={yearLoading}
+          perCapitaAvailable={perCapitaOffered && perCapitaSupportedForYear}
+          onSelectDataset={handleSelectDataset}
+          onBasisChange={handleBasisChange}
+          onYearChange={setYear}
+          onTogglePlay={() => setPlaying((current) => !current)}
+          onHide={() => setRailOpen(false)}
+        />
+      ) : (
+        /* Collapsed: one labelled affordance, not a bare icon, so it is
+           obvious what comes back. Playback keeps running underneath. */
+        <button
+          type="button"
+          className="card rail-restore"
+          onClick={() => setRailOpen(true)}
+          aria-label="Show controls"
+          aria-expanded={false}
+          aria-controls="map-controls"
+        >
+          <span className="rail-restore-title">Energy Map</span>
+          <span className="rail-restore-state">
+            {datasetLabel}
+            {basis === "per-capita" ? " per person" : ""} · {year}
+          </span>
+        </button>
+      )}
 
       {dataError && (
         <div className="data-error" role="alert">

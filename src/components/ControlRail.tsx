@@ -33,6 +33,20 @@ const PauseIcon = () => (
   </svg>
 )
 
+/** Chevron pointing at the edge the rail collapses toward. */
+const CollapseIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+    <path
+      d="M7.4 2.4 3.8 6l3.6 3.6"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
+
 type ControlRailProps = {
   datasets: ManifestDataset[]
   dataset: ManifestDataset
@@ -47,6 +61,7 @@ type ControlRailProps = {
   onBasisChange: (basis: Basis) => void
   onYearChange: (year: number) => void
   onTogglePlay: () => void
+  onHide: () => void
 }
 
 /**
@@ -71,6 +86,7 @@ export function ControlRail({
   onBasisChange,
   onYearChange,
   onTogglePlay,
+  onHide,
 }: ControlRailProps) {
   const metrics = metricsOf(datasets)
   const siblings = datasetsForMetric(datasets, dataset.metric)
@@ -98,9 +114,20 @@ export function ControlRail({
   }
 
   return (
-    <section className="card rail" aria-label="Map controls">
+    <section className="card rail" id="map-controls" aria-label="Map controls">
       <header className="rail-head">
         <h1>Energy Map</h1>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={onHide}
+          aria-label="Hide controls"
+          aria-expanded={true}
+          aria-controls="map-controls"
+          title="Hide controls"
+        >
+          <CollapseIcon />
+        </button>
       </header>
 
       <div className="rail-body">
