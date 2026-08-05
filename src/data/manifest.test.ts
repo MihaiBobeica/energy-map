@@ -5,6 +5,10 @@ import { loadManifest, ManifestError, parseManifest } from "./manifest.ts"
 const validManifest = {
   schemaVersion: "1.0.0",
   generatedAt: "2026-08-05T00:00:00Z",
+  countriesGeojsonPath: "geographies/countries.geojson",
+  geographyIndexPath: "geography-index.json",
+  countrySeriesPathTemplate: "country-series/{iso3}.json",
+  worldSeriesPath: "world-series.json",
   datasets: [
     {
       id: "electricity-generation",
@@ -13,7 +17,10 @@ const validManifest = {
       sourceId: "owid-electricity-generation",
       datasetVersion: "2026-01",
       evidenceTypes: ["observed"],
-      years: [1985, 2025],
+      years: [1985, 2024, 2025],
+      defaultYear: 2024,
+      yearGeographyCounts: [100, 196, 91],
+      unit: "TWh",
       path: "years/electricity-generation",
     },
   ],
@@ -25,6 +32,32 @@ describe("parseManifest", () => {
     expect(manifest.schemaVersion).toBe("1.0.0")
     expect(manifest.datasets).toHaveLength(1)
     expect(manifest.datasets[0]?.evidenceTypes).toEqual(["observed"])
+    expect(manifest.datasets[0]?.defaultYear).toBe(2024)
+    expect(manifest.countriesGeojsonPath).toBe("geographies/countries.geojson")
+  })
+
+  it("defaults unit and defaultYear when absent", () => {
+    const minimal = structuredClone(validManifest)
+    const dataset = minimal.datasets[0]! as Record<string, unknown>
+    delete dataset.unit
+    delete dataset.defaultYear
+    delete dataset.yearGeographyCounts
+    const manifest = parseManifest(minimal)
+    expect(manifest.datasets[0]?.unit).toBe("TWh")
+    expect(manifest.datasets[0]?.defaultYear).toBe(2025)
+    expect(manifest.datasets[0]?.yearGeographyCounts).toBeNull()
+  })
+
+  it("rejects a defaultYear outside the year list", () => {
+    const bad = structuredClone(validManifest)
+    bad.datasets[0]!.defaultYear = 1900
+    expect(() => parseManifest(bad)).toThrow(/defaultYear/)
+  })
+
+  it("rejects misaligned yearGeographyCounts", () => {
+    const bad = structuredClone(validManifest)
+    bad.datasets[0]!.yearGeographyCounts = [1]
+    expect(() => parseManifest(bad)).toThrow(/yearGeographyCounts/)
   })
 
   it("accepts an empty dataset list (application shell state)", () => {

@@ -9,12 +9,19 @@ export type ManifestDataset = {
   evidenceTypes: EvidenceType[]
   years: number[]
   path: string
+  unit: string
+  defaultYear: number
+  yearGeographyCounts: number[] | null
 }
 
 export type DataManifest = {
   schemaVersion: string
   generatedAt: string
   datasets: ManifestDataset[]
+  countriesGeojsonPath: string | null
+  geographyIndexPath: string | null
+  countrySeriesPathTemplate: string | null
+  worldSeriesPath: string | null
 }
 
 export class ManifestError extends Error {
@@ -28,26 +35,34 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
+function requireString(value: unknown, label: string): string {
+  if (typeof value !== "string" || value === "") {
+    throw new ManifestError(`${label} must be a non-empty string`)
+  }
+  return value
+}
+
+function optionalPath(value: unknown, label: string): string | null {
+  if (value === undefined || value === null) return null
+  const path = requireString(value, label)
+  if (path.startsWith("/") || path.includes("..")) {
+    throw new ManifestError(`${label} must be relative to the data root`)
+  }
+  return path
+}
+
 function parseDataset(input: unknown, index: number): ManifestDataset {
   if (!isRecord(input)) {
     throw new ManifestError(`datasets[${index}] is not an object`)
   }
-  const { id, title, metric, sourceId, datasetVersion, evidenceTypes, years, path } = input
-  if (typeof id !== "string" || id === "") {
-    throw new ManifestError(`datasets[${index}].id must be a non-empty string`)
-  }
-  if (typeof title !== "string" || title === "") {
-    throw new ManifestError(`dataset ${id}: title must be a non-empty string`)
-  }
-  if (typeof metric !== "string" || metric === "") {
-    throw new ManifestError(`dataset ${id}: metric must be a non-empty string`)
-  }
-  if (typeof sourceId !== "string" || sourceId === "") {
-    throw new ManifestError(`dataset ${id}: sourceId must be a non-empty string`)
-  }
-  if (typeof datasetVersion !== "string" || datasetVersion === "") {
-    throw new ManifestError(`dataset ${id}: datasetVersion must be a non-empty string`)
-  }
+  const id = requireString(input.id, `datasets[${index}].id`)
+  const title = requireString(input.title, `dataset ${id}: title`)
+  const metric = requireString(input.metric, `dataset ${id}: metric`)
+  const sourceId = requireString(input.sourceId, `dataset ${id}: sourceId`)
+  const datasetVersion = requireString(input.datasetVersion, `dataset ${id}: datasetVersion`)
+  const unit = requireString(input.unit ?? "TWh", `dataset ${id}: unit`)
+
+  const { evidenceTypes, years, path } = input
   if (!Array.isArray(evidenceTypes) || evidenceTypes.length === 0) {
     throw new ManifestError(`dataset ${id}: evidenceTypes must be a non-empty array`)
   }
@@ -56,15 +71,42 @@ function parseDataset(input: unknown, index: number): ManifestDataset {
       throw new ManifestError(`dataset ${id}: unknown evidence type ${JSON.stringify(evidence)}`)
     }
   }
-  if (!Array.isArray(years) || years.some((year) => !Number.isInteger(year))) {
-    throw new ManifestError(`dataset ${id}: years must be an array of integers`)
+  if (
+    !Array.isArray(years) ||
+    years.length === 0 ||
+    years.some((year) => !Number.isInteger(year))
+  ) {
+    throw new ManifestError(`dataset ${id}: years must be a non-empty array of integers`)
   }
-  if (typeof path !== "string" || path === "") {
-    throw new ManifestError(`dataset ${id}: path must be a non-empty string`)
+  const yearList = years as number[]
+  const relativePath = optionalPath(path, `dataset ${id}: path`)
+  if (relativePath === null) {
+    throw new ManifestError(`dataset ${id}: path is required`)
   }
-  if (path.startsWith("/") || path.includes("..")) {
-    throw new ManifestError(`dataset ${id}: path must be relative to the data root`)
+
+  let defaultYear = yearList[yearList.length - 1] as number
+  if (input.defaultYear !== undefined) {
+    if (!Number.isInteger(input.defaultYear) || !yearList.includes(input.defaultYear as number)) {
+      throw new ManifestError(`dataset ${id}: defaultYear must be one of the listed years`)
+    }
+    defaultYear = input.defaultYear as number
   }
+
+  let yearGeographyCounts: number[] | null = null
+  if (input.yearGeographyCounts !== undefined) {
+    const counts = input.yearGeographyCounts
+    if (
+      !Array.isArray(counts) ||
+      counts.length !== yearList.length ||
+      counts.some((count) => !Number.isInteger(count) || (count as number) < 0)
+    ) {
+      throw new ManifestError(
+        `dataset ${id}: yearGeographyCounts must align with years and be non-negative integers`,
+      )
+    }
+    yearGeographyCounts = counts as number[]
+  }
+
   return {
     id,
     title,
@@ -72,8 +114,11 @@ function parseDataset(input: unknown, index: number): ManifestDataset {
     sourceId,
     datasetVersion,
     evidenceTypes: evidenceTypes as EvidenceType[],
-    years: years as number[],
-    path,
+    years: yearList,
+    path: relativePath,
+    unit,
+    defaultYear,
+    yearGeographyCounts,
   }
 }
 
@@ -81,9 +126,7 @@ export function parseManifest(input: unknown): DataManifest {
   if (!isRecord(input)) {
     throw new ManifestError("Manifest is not an object")
   }
-  if (typeof input.schemaVersion !== "string" || input.schemaVersion === "") {
-    throw new ManifestError("Manifest schemaVersion must be a non-empty string")
-  }
+  const schemaVersion = requireString(input.schemaVersion, "Manifest schemaVersion")
   if (typeof input.generatedAt !== "string" || Number.isNaN(Date.parse(input.generatedAt))) {
     throw new ManifestError("Manifest generatedAt must be an ISO date string")
   }
@@ -99,13 +142,21 @@ export function parseManifest(input: unknown): DataManifest {
     seen.add(dataset.id)
   }
   return {
-    schemaVersion: input.schemaVersion,
+    schemaVersion,
     generatedAt: input.generatedAt,
     datasets,
+    countriesGeojsonPath: optionalPath(input.countriesGeojsonPath, "countriesGeojsonPath"),
+    geographyIndexPath: optionalPath(input.geographyIndexPath, "geographyIndexPath"),
+    countrySeriesPathTemplate: optionalPath(
+      input.countrySeriesPathTemplate,
+      "countrySeriesPathTemplate",
+    ),
+    worldSeriesPath: optionalPath(input.worldSeriesPath, "worldSeriesPath"),
   }
 }
 
-export const MANIFEST_URL = `${import.meta.env.BASE_URL}data/manifest.json`
+export const DATA_BASE_URL = `${import.meta.env.BASE_URL}data/`
+export const MANIFEST_URL = `${DATA_BASE_URL}manifest.json`
 
 export async function loadManifest(url: string = MANIFEST_URL): Promise<DataManifest> {
   const response = await fetch(url)

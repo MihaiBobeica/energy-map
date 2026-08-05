@@ -21,45 +21,13 @@ body {
     sans-serif;
   color: #1c2733;
   background: #f4f7f9;
+  font-size: 14px;
 }
 
-.app {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.app-header {
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid #d4dde3;
-  background: #ffffff;
-}
-
-.app-header h1 {
-  margin: 0;
-  font-size: 1.15rem;
-}
-
-.app-tagline {
-  margin: 0.1rem 0 0;
-  font-size: 0.8rem;
-  color: #4a5a68;
-}
-
-.app-status {
-  margin: 0.25rem 0 0;
-  font-size: 0.8rem;
-  color: #34526e;
-}
-
-.app-status-error {
-  color: #8a2b1d;
-}
-
-.app-map {
+.atlas {
   position: relative;
-  flex: 1;
-  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .map-container {
@@ -74,42 +42,298 @@ body {
   justify-content: center;
   padding: 1rem;
   text-align: center;
-  color: #4a5a68;
-  font-size: 0.9rem;
+  color: #33424f;
 }
 
-.attribution-bar {
-  padding: 0.35rem 1rem;
-  border-top: 1px solid #d4dde3;
-  background: #ffffff;
-  font-size: 0.72rem;
-  color: #4a5a68;
+.app-message {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  text-align: center;
+  color: #33424f;
 }
 
-.attribution-bar a {
-  color: #23557d;
+/* --- floating cards ---------------------------------------------------- */
+
+.control-card,
+.legend,
+.country-panel {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #ccd6dd;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(15, 39, 64, 0.12);
 }
 
-.error-boundary {
-  padding: 2rem;
-  max-width: 40rem;
-  margin: 0 auto;
+.control-card {
+  top: 12px;
+  left: 12px;
+  width: 260px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-@media (max-width: 600px) {
-  .app-header {
-    padding: 0.4rem 0.75rem;
+.control-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.control-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.control-label {
+  font-size: 0.78rem;
+  color: #44576a;
+}
+
+.control-field select,
+.control-field input[type="range"] {
+  width: 100%;
+}
+
+.control-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.control-buttons button {
+  flex: 1;
+  padding: 4px 6px;
+  border: 1px solid #b7c4cf;
+  border-radius: 5px;
+  background: #f2f6f9;
+  cursor: pointer;
+}
+
+.control-buttons button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.control-buttons button:focus-visible,
+.control-field select:focus-visible,
+.control-field input:focus-visible,
+.panel-header button:focus-visible {
+  outline: 2px solid #1d6fa8;
+  outline-offset: 1px;
+}
+
+.control-note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #7a5a1e;
+  background: #fdf3dc;
+  border-radius: 5px;
+  padding: 4px 6px;
+}
+
+.control-meta {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #5a6b7a;
+}
+
+.control-loading {
+  color: #1d6fa8;
+}
+
+/* --- legend ------------------------------------------------------------ */
+
+.legend {
+  left: 12px;
+  bottom: 24px;
+  padding: 8px 10px;
+  font-size: 0.72rem;
+}
+
+.legend ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
+/* --- tooltip ----------------------------------------------------------- */
+
+.map-tooltip {
+  position: absolute;
+  z-index: 5;
+  max-width: 240px;
+  pointer-events: none;
+  background: rgba(15, 39, 64, 0.92);
+  color: #f2f6f9;
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-size: 0.78rem;
+}
+
+.tooltip-meta {
+  color: #b9cbd9;
+  font-size: 0.72rem;
+}
+
+/* --- country panel ------------------------------------------------------ */
+
+.country-panel {
+  top: 12px;
+  right: 12px;
+  width: 320px;
+  max-height: calc(100% - 48px);
+  overflow-y: auto;
+  padding: 12px 14px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.panel-header button {
+  border: none;
+  background: none;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #44576a;
+}
+
+.panel-kind {
+  margin: 2px 0 8px;
+  font-size: 0.75rem;
+  color: #5a6b7a;
+}
+
+.panel-facts {
+  margin: 0 0 8px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  font-size: 0.82rem;
+}
+
+.panel-facts dt {
+  color: #44576a;
+}
+
+.panel-facts dd {
+  margin: 0;
+}
+
+.evidence-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+}
+
+.evidence-observed {
+  background: #dcefdd;
+  color: #1d5e2a;
+  border: 1px solid #b3d8b8;
+}
+
+.panel-missing {
+  font-size: 0.8rem;
+  background: #f6e8e5;
+  color: #7c2d1d;
+  border-radius: 5px;
+  padding: 6px 8px;
+}
+
+.panel-loading {
+  font-size: 0.8rem;
+  color: #44576a;
+}
+
+.line-chart {
+  width: 100%;
+  height: auto;
+}
+
+.chart-tick {
+  font-size: 9px;
+  fill: #5a6b7a;
+}
+
+.panel-chart-caption {
+  margin: 4px 0 0;
+  font-size: 0.72rem;
+  color: #5a6b7a;
+}
+
+.data-error {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #7c2d1d;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  z-index: 6;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- mobile ------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  .control-card {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    width: auto;
   }
 
-  .app-tagline {
+  .country-panel {
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: auto;
+    max-height: 55%;
+  }
+
+  .legend {
     display: none;
-  }
-
-  .attribution-bar {
-    padding: 0.3rem 0.75rem;
   }
 }
 
