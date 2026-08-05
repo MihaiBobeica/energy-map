@@ -11,6 +11,17 @@ type SourceMixProps = {
   onSelectSource: (energySource: string | null) => void
 }
 
+/**
+ * Bar width for one source. A reported non-zero value always gets a visible
+ * sliver: at true proportion, a source worth 0.1% of the mix rendered as
+ * nothing, which is indistinguishable from zero and from unreported.
+ */
+function barWidth(value: number | null, scaleMax: number): string {
+  if (value === null || scaleMax <= 0) return "0%"
+  if (value === 0) return "0%"
+  return `${Math.max(3, (value / scaleMax) * 100)}%`
+}
+
 function valueAt(series: CountrySeries, datasetId: string, year: number): number | null {
   const entry = series.series[datasetId]
   if (!entry) return null
@@ -67,11 +78,7 @@ export function SourceMix({
               >
                 <span className="source-name">{dataset.title}</span>
                 <span className="source-bar" aria-hidden="true">
-                  <span
-                    style={{
-                      width: value !== null && scaleMax > 0 ? `${(value / scaleMax) * 100}%` : "0%",
-                    }}
-                  />
+                  <span style={{ width: barWidth(value, scaleMax) }} />
                 </span>
                 <span className="source-value">
                   {value === null ? (

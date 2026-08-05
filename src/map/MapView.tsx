@@ -68,6 +68,9 @@ export function MapView({
   // Read at layer-creation time only; later changes go through setPaintProperty
   // below so switching scale never rebuilds the map or its source.
   const scaleRef = useRef(scale)
+  // Hover lives here rather than in React state: it changes on every
+  // mousemove, and a filter swap is cheaper than a re-render.
+  const hoveredRef = useRef("")
   useEffect(() => {
     hoverRef.current = onHover
     selectRef.current = onSelect
@@ -136,7 +139,22 @@ export function MapView({
       id: "countries-outline",
       type: "line",
       source: SOURCE_ID,
-      paint: { "line-color": "#5b7285", "line-width": 0.5 },
+      paint: {
+        "line-color": "#7d94a8",
+        // Hairlines at world zoom keep dense regions such as Europe readable
+        // as colour rather than as a mesh of borders; they thicken as you
+        // zoom in and the borders become the thing you are looking at.
+        "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.3, 3, 0.6, 6, 1] as never,
+      },
+    })
+    // Hover feedback: the map previously answered a hover only with a
+    // tooltip, so the pointer had nothing anchoring it to a shape.
+    map.addLayer({
+      id: "countries-hover",
+      type: "line",
+      source: SOURCE_ID,
+      filter: ["==", ["get", "iso3"], ""],
+      paint: { "line-color": "#0f2740", "line-width": 1.25, "line-opacity": 0.55 },
     })
     map.addLayer({
       id: "countries-selected",
@@ -146,12 +164,19 @@ export function MapView({
       paint: { "line-color": "#0f2740", "line-width": 2 },
     })
 
+    const setHovered = (iso3: string) => {
+      if (hoveredRef.current === iso3) return
+      hoveredRef.current = iso3
+      map.setFilter("countries-hover", ["==", ["get", "iso3"], iso3])
+    }
+
     map.on("mousemove", "countries-fill", (event: MapLayerMouseEvent) => {
       const feature = event.features?.[0]
       if (!feature) return
       map.getCanvas().style.cursor = "pointer"
       const properties = feature.properties as { iso3?: string; name?: string }
       if (typeof properties.iso3 === "string" && typeof properties.name === "string") {
+        setHovered(properties.iso3)
         hoverRef.current({
           x: event.point.x,
           y: event.point.y,
@@ -162,6 +187,7 @@ export function MapView({
     })
     map.on("mouseleave", "countries-fill", () => {
       map.getCanvas().style.cursor = ""
+      setHovered("")
       hoverRef.current(null)
     })
     map.on("click", (event: MapLayerMouseEvent) => {

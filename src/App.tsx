@@ -20,7 +20,7 @@ import { useManifest } from "./hooks/useManifest.ts"
 import { MapView, type HoverInfo } from "./map/MapView.tsx"
 import { buildSearch, parseUrlState, resolveState } from "./state/urlState.ts"
 import { formatValue } from "./utils/format.ts"
-import { PER_CAPITA_SCALE, TOTAL_SCALE } from "./utils/scale.ts"
+import { colorForValue, PER_CAPITA_SCALE, TOTAL_SCALE } from "./utils/scale.ts"
 
 const ATTRIBUTION =
   'Electricity data: <a href="https://ember-energy.org/">Ember</a> (CC BY 4.0) via ' +
@@ -320,20 +320,13 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
     dataset.energySource === null
       ? dataset.metricTitle
       : `${dataset.metricTitle} from ${dataset.title}`
-  // A per-capita figure is observed electricity divided by a population
-  // figure, so it inherits the weaker of the two — and a projected denominator
-  // is weaker still than an estimated one.
-  // The year span is not repeated here: the slider prints its own endpoints
-  // from the same array, two rows below.
-  const evidenceLine =
-    basis === "per-capita"
-      ? populationIsProjected
-        ? "Observed electricity ÷ projected population"
-        : "Observed electricity ÷ reconstructed population"
-      : "Observed data · by country"
   const announcement = `${datasetLabel}, ${basis === "per-capita" ? "per capita" : "total"}, ${year}${
     selectedName ? `, ${selectedName}` : ""
   }`
+  // Estimated tooltip footprint; exact width is unknown before paint, and a
+  // small overshoot only flips slightly earlier than strictly needed.
+  const flipTooltipX = hover !== null && hover.x > window.innerWidth - 260
+  const flipTooltipY = hover !== null && hover.y > window.innerHeight - 110
 
   return (
     <div className="atlas">
@@ -392,15 +385,30 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
       {hover && (
         <div
           className="map-tooltip"
-          style={{ left: hover.x + 12, top: hover.y + 12 }}
+          style={{
+            left: hover.x + (flipTooltipX ? -14 : 14),
+            top: hover.y + (flipTooltipY ? -14 : 14),
+            // Flip around the cursor near an edge instead of being clipped by
+            // it — countries on the right of the map were losing their tooltip.
+            transform: `translate(${flipTooltipX ? "-100%" : "0"}, ${
+              flipTooltipY ? "-100%" : "0"
+            })`,
+          }}
           role="presentation"
         >
-          <strong>{hover.name}</strong>
-          <br />
-          {datasetLabel}, {year}: {formatValue(hoverValue, scale.unit)}
-          <br />
+          <span className="tooltip-head">
+            {/* The same colour the country is painted, so the tooltip and the
+                legend are visibly the same statement. */}
+            <span
+              className="tooltip-swatch"
+              style={{ background: colorForValue(hoverValue, scale) }}
+              aria-hidden="true"
+            />
+            <strong>{hover.name}</strong>
+          </span>
+          <span className="tooltip-value">{formatValue(hoverValue, scale.unit)}</span>
           <span className="tooltip-meta">
-            {hoverValue === null ? "No reported value" : evidenceLine}
+            {hoverValue === null ? "Not reported" : `${datasetLabel} · ${year}`}
           </span>
         </div>
       )}

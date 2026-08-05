@@ -127,6 +127,30 @@ test("zoom buttons sit above the attribution bar", async ({ page }) => {
   expect(zoom!.y + zoom!.height).toBeLessThanOrEqual(attribution!.y + 1)
 })
 
+test("hovering the map highlights a country and keeps the tooltip on screen", async ({ page }) => {
+  await page.goto("./")
+  await expect(page.locator(".map-container canvas")).toBeVisible()
+  const map = await page.locator(".map-container").boundingBox()
+  expect(map).not.toBeNull()
+
+  // Sweep across the map until a country is under the pointer, then check the
+  // tooltip stays fully inside the viewport — it used to be clipped near the
+  // right edge, exactly where the densest countries are at world zoom.
+  const viewport = page.viewportSize()!
+  for (const fraction of [0.55, 0.7, 0.8, 0.9, 0.95]) {
+    await page.mouse.move(map!.x + map!.width * fraction, map!.y + map!.height * 0.45)
+    await page.waitForTimeout(250)
+    const tooltip = page.locator(".map-tooltip")
+    if ((await tooltip.count()) === 0) continue
+    const box = await tooltip.boundingBox()
+    if (!box) continue
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.y).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1)
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1)
+  }
+})
+
 test("controls can be hidden for a clean map and brought back", async ({ page }) => {
   await page.goto("./")
   await page.getByRole("button", { name: "Hide controls" }).click()
