@@ -45,8 +45,17 @@ pipeline; `—` means not yet retrieved.
 - **Page:** <https://ourworldindata.org/grapher/electricity-generation>
 - **CSV:** <https://ourworldindata.org/grapher/electricity-generation.csv?v=1&csvType=full&useColumnShortNames=false>
 - **Metadata:** <https://ourworldindata.org/grapher/electricity-generation.metadata.json?v=1&csvType=full&useColumnShortNames=false>
-- **Licence status:** `pending` (CC BY expected; underlying Ember/EI terms to verify)
-- **Temporal coverage:** broad coverage 1985–2025
+- **Licence status:** `verified` **for the Ember-covered span (year ≥ 2000) only**
+- **Licence detail (verified 2026-08-05 via indicator metadata
+  `api.ourworldindata.org/v1/indicators/1228028.metadata.json`):** Ember data
+  (2000 onward; 1990 onward for Europe) is CC BY 4.0
+  (<https://ember-energy.org/creative-commons/>). Pre-2000 values derive from
+  the Energy Institute Statistical Review ("© Energy Institute", terms page
+  not retrievable for verification) — **treated as `restricted` and excluded
+  from published output**. The CSV has no row-level provenance, so the
+  conservative global cut is year ≥ 2000.
+- **Retrieved:** 2026-08-05 (dataset version 2026-04-24)
+- **Temporal coverage:** source 1985–2025; **published 2000–2025**
 - **Evidence classification:** `observed`
 
 ### OWID-DEM — Electricity demand (grapher)
@@ -55,8 +64,11 @@ pipeline; `—` means not yet retrieved.
 - **Page:** <https://ourworldindata.org/grapher/electricity-demand>
 - **CSV:** <https://ourworldindata.org/grapher/electricity-demand.csv?v=1&csvType=full&useColumnShortNames=false>
 - **Metadata:** <https://ourworldindata.org/grapher/electricity-demand.metadata.json?v=1&csvType=full&useColumnShortNames=false>
-- **Licence status:** `pending` (based primarily on Ember data)
-- **Temporal coverage:** 1990–latest
+- **Licence status:** `verified` — Ember throughout, CC BY 4.0
+  (<https://ember-energy.org/creative-commons/>), confirmed 2026-08-05 via
+  indicator metadata `api.ourworldindata.org/v1/indicators/1228025.metadata.json`
+- **Retrieved:** 2026-08-05 (dataset version 2026-04-24)
+- **Temporal coverage:** 1990–2025 (published in full)
 - **Evidence classification:** `observed`
 
 ### OWID-MIX — Electricity production by source
@@ -185,9 +197,13 @@ pipeline; `—` means not yet retrieved.
 - **Terms:** <https://www.naturalearthdata.com/about/terms-of-use/>
 - **Licence:** public domain
 - **Licence status:** `verified` (public domain per published terms of use)
+- **Retrieved:** 2026-08-05 — `ne_50m_admin_0_countries.geojson` from the
+  official `nvkelso/natural-earth-vector` repository (1:50m so microstates
+  are present; 1:110m drops them)
 - **Evidence classification:** n/a (geometry)
 - **Notes:** used for lightweight global country geometry; attribution
-  included although optional.
+  included although optional. Kosovo has no ISO 3166-1 code; Natural Earth's
+  `KOS` is used and OWID's `OWID_KOS` is mapped onto it.
 
 ### GB — geoBoundaries (gbOpen)
 

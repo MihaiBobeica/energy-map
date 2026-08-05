@@ -37,9 +37,21 @@ electricity itself.
 
 ## Status
 
-Phase 1 — repository foundation. The deployed site is an application shell
-(map canvas, manifest loading, attribution); data slices land in subsequent
-phases. See [docs/requirements.md](docs/requirements.md) for the phase plan.
+Phase 2 — country electricity vertical slice is live. The deployed site
+shows observed country-level electricity **generation (2000–2025)** and
+**demand (1990–2025)** as a choropleth over Natural Earth boundaries, with a
+timeline (play/prev/next), hover tooltips carrying evidence and source
+metadata, a country panel with the historical line chart and share of the
+world total, and shareable URL state (`?metric=…&year=…&country=…`).
+
+Generation is published from 2000 — not 1985 as in the source — because
+pre-2000 values derive from the Energy Institute, whose redistribution terms
+are not verified; the Ember-covered span is CC BY 4.0. See
+[docs/data-source-register.md](docs/data-source-register.md). The default
+year is the latest _broadly covered_ year; partial early-release years stay
+on the timeline and are labelled with a coverage note.
+
+See [docs/requirements.md](docs/requirements.md) for the full phase plan.
 
 ## Screenshots
 
