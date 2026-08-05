@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react"
+
 import { datasetsForMetric, metricsOf, type ManifestDataset } from "../data/manifest.ts"
 import type { ScaleDefinition } from "../utils/scale.ts"
 import { ScaleKey } from "./ScaleKey.tsx"
@@ -5,6 +7,31 @@ import { ScaleKey } from "./ScaleKey.tsx"
 const REPO_URL = "https://github.com/MihaiBobeica/energy-map"
 
 export type Basis = "total" | "per-capita"
+
+/** 12px icons, currentColor, so the buttons need no chrome of their own. */
+const StepBackIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+    <path d="M2.6 1.8h1.4v8.4H2.6zM9.6 1.8 4.6 6l5 4.2z" />
+  </svg>
+)
+
+const StepForwardIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+    <path d="M8 1.8h1.4v8.4H8zM2.4 1.8 7.4 6l-5 4.2z" />
+  </svg>
+)
+
+const PlayIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+    <path d="M3.4 1.6 10 6l-6.6 4.4z" />
+  </svg>
+)
+
+const PauseIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+    <path d="M3 2h2.2v8H3zM6.8 2H9v8H6.8z" />
+  </svg>
+)
 
 type ControlRailProps = {
   datasets: ManifestDataset[]
@@ -28,6 +55,9 @@ type ControlRailProps = {
  * One rail, not three cards. Reads top-to-bottom as "what am I looking at"
  * (VIEW) → "when" (TIME) → "what do the colours mean" (SCALE). The scale key is
  * pinned outside the scrolling body so a short window can never hide it.
+ *
+ * Every control is transparent at rest and grows its affordance on hover or
+ * focus. The rail is a caption on the map until you reach for it.
  */
 export function ControlRail({
   datasets,
@@ -53,6 +83,7 @@ export function ControlRail({
   const yearIndex = years.indexOf(year)
   const lastIndex = years.length - 1
   const singleTimePoint = years.length <= 1
+  const fillPercent = lastIndex > 0 ? (Math.max(yearIndex, 0) / lastIndex) * 100 : 100
 
   const coverageNote = (() => {
     if (!dataset.yearGeographyCounts) return null
@@ -146,7 +177,7 @@ export function ControlRail({
 
           {!perCapitaAvailable && perCapitaLastYear !== null && (
             <p className="rail-note">
-              Per capita is unavailable: population estimates end in {perCapitaLastYear}.{" "}
+              Per capita unavailable — population estimates end in {perCapitaLastYear}.{" "}
               <button
                 type="button"
                 className="link-button"
@@ -158,20 +189,22 @@ export function ControlRail({
           )}
         </section>
 
-        <section className="rail-section">
+        <section className="rail-section rail-time">
           <div className="time-head">
             <span className="field-label">Year</span>
+            {loading && <span className="time-loading">loading…</span>}
             <strong className="time-value" data-testid="year-value">
               {year}
             </strong>
-            {loading && <span className="time-loading">loading…</span>}
           </div>
           <input
+            className="year-range"
             type="range"
             min={0}
             max={Math.max(lastIndex, 0)}
             step={1}
             value={Math.max(yearIndex, 0)}
+            style={{ "--range-fill": `${fillPercent}%` } as CSSProperties}
             onChange={(event) => {
               const next = years[Number(event.target.value)]
               if (next !== undefined) onYearChange(next)
@@ -179,40 +212,52 @@ export function ControlRail({
             aria-label="Year"
             aria-valuetext={String(year)}
           />
-          <div className="time-range" aria-hidden="true">
-            <span>{years[0]}</span>
-            <span>{years[lastIndex]}</span>
-          </div>
-          <div className="transport">
-            <button
-              type="button"
-              onClick={() => step(-1)}
-              disabled={yearIndex <= 0}
-              aria-label="Previous year"
-            >
-              ◀
-            </button>
-            <button
-              type="button"
-              onClick={onTogglePlay}
-              disabled={singleTimePoint}
-              aria-label={playing ? "Pause" : "Play"}
-            >
-              {playing ? "⏸ Pause" : "▶ Play"}
-            </button>
-            <button
-              type="button"
-              onClick={() => step(1)}
-              disabled={yearIndex >= lastIndex}
-              aria-label="Next year"
-            >
-              ▶
-            </button>
+          {/* The span endpoints label the track they sit under; the transport
+              centres on it. One row instead of two. */}
+          <div className="time-foot">
+            <span className="time-bound" aria-hidden="true">
+              {years[0]}
+            </span>
+            <div className="transport">
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => step(-1)}
+                disabled={yearIndex <= 0}
+                aria-label="Previous year"
+                title="Previous year"
+              >
+                <StepBackIcon />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={onTogglePlay}
+                disabled={singleTimePoint}
+                aria-label={playing ? "Pause" : "Play"}
+                title={playing ? "Pause" : "Play"}
+              >
+                {playing ? <PauseIcon /> : <PlayIcon />}
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => step(1)}
+                disabled={yearIndex >= lastIndex}
+                aria-label="Next year"
+                title="Next year"
+              >
+                <StepForwardIcon />
+              </button>
+            </div>
+            <span className="time-bound" aria-hidden="true">
+              {years[lastIndex]}
+            </span>
           </div>
           {basis === "per-capita" && perCapitaLastYear !== null && (
             <p className="rail-note">
-              Timeline ends at {perCapitaLastYear} in this view: population estimates go no further,
-              and they are not extrapolated.
+              Per capita ends at {perCapitaLastYear}: population estimates stop there and are not
+              extrapolated.
             </p>
           )}
           {coverageNote && <p className="rail-note">{coverageNote}</p>}

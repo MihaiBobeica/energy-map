@@ -10,19 +10,19 @@ import {
  * because they are not the bottom of a continuum — "never reported" and
  * "reported as zero" are different kinds of fact from "1–3 TWh", and over half
  * of all published source cells are exactly zero.
+ *
+ * The unit is stated once, at the top, and every label below inherits it: the
+ * zero chip reads "Zero" under a heading that already says "kWh per person".
  */
 export function ScaleKey({ scale }: { scale: ScaleDefinition }) {
   const ticks = rampTicks(scale)
 
   return (
     <section className="rail-section scale-key" aria-label="Legend">
-      <div className="scale-head">
-        <span className="field-label">Scale</span>
-        <span className="scale-unit">{scale.unit}</span>
-      </div>
+      <span className="scale-unit">{scale.unit}</span>
 
       <ul className="scale-states">
-        {categoricalStates(scale).map((state) => (
+        {categoricalStates().map((state) => (
           <li key={state.label}>
             <span
               className="legend-swatch"

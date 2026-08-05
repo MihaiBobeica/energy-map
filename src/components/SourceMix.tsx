@@ -92,17 +92,17 @@ export function SourceMix({
       </ul>
       {totalValue !== null && (
         <p className="source-total">
-          Total generation: <strong>{formatValue(totalValue, unit)}</strong>
+          <span>Total</span>
+          <strong>{formatValue(totalValue, unit)}</strong>
         </p>
       )}
       {unreported.length > 0 && (
         <p className="source-incomplete">
           {unreported.length === 1
-            ? `${unreported[0]?.dataset.title} was not reported for this country in ${year}.`
-            : `${unreported.length} sources were not reported for this country in ${year}.`}{" "}
-          The published total is the sum of the reported sources, so it understates actual
-          generation and the shares above add to 100% of what was reported — not of all electricity
-          generated.
+            ? `${unreported[0]?.dataset.title} was not reported in ${year}.`
+            : `${unreported.length} sources were not reported in ${year}.`}{" "}
+          The total sums only the reported sources, so it understates actual generation, and the
+          shares are of what was reported — not of all electricity generated.
         </p>
       )}
     </section>

@@ -10,7 +10,9 @@ test("atlas loads under /energy-map/ with controls, legend and default year", as
   await expect(page.locator(".rail")).toContainText("2024")
   await expect(page.getByLabel("Legend")).toBeVisible()
   await expect(page.getByLabel("Legend")).toContainText("Not reported")
-  await expect(page.getByLabel("Legend")).toContainText("Zero TWh")
+  // The key states its unit once, then labels the zero state beside it.
+  await expect(page.getByLabel("Legend")).toContainText("Zero")
+  await expect(page.getByLabel("Legend")).toContainText("TWh")
 })
 
 test("per capita is offered with a reason where no denominator exists", async ({ page }) => {

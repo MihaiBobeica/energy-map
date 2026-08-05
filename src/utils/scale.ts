@@ -65,11 +65,14 @@ function formatThreshold(value: number): string {
 /**
  * The two categorical states, kept apart from the value ramp on purpose: they
  * are not the bottom of a continuum, they are different kinds of fact.
+ *
+ * Labels are unit-free because the key prints the unit once directly above
+ * them. `legendEntries` restates it for contexts with no such heading.
  */
-export function categoricalStates(scale: ScaleDefinition): LegendEntry[] {
+export function categoricalStates(): LegendEntry[] {
   return [
     { label: "Not reported", color: MISSING_COLOR },
-    { label: `Zero ${scale.unit}`, color: ZERO_COLOR },
+    { label: "Zero", color: ZERO_COLOR },
   ]
 }
 
@@ -101,7 +104,10 @@ export function colorForValue(value: number | null, scale: ScaleDefinition): str
 
 /** Full text description of every band, used for screen readers and titles. */
 export function legendEntries(scale: ScaleDefinition): LegendEntry[] {
-  const entries = categoricalStates(scale)
+  const entries: LegendEntry[] = [
+    { label: "Not reported", color: MISSING_COLOR },
+    { label: `Zero ${scale.unit}`, color: ZERO_COLOR },
+  ]
   for (let index = 0; index < scale.thresholds.length; index += 1) {
     const lower = scale.thresholds[index] as number
     const upper = scale.thresholds[index + 1]

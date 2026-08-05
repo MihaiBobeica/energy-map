@@ -4,6 +4,32 @@
   box-sizing: border-box;
 }
 
+/* --- tokens -------------------------------------------------------------
+   One ink ramp, one line colour, one accent. Every surface in the app is
+   built from these, so "quiet" is a property of the system rather than a
+   decision repeated per component. Contrast is checked against white:
+   --ink 15.9:1, --ink-2 6.2:1, --ink-3 4.5:1, so all three carry text. */
+
+:root {
+  --ink: #16212b;
+  --ink-2: #55636f;
+  --ink-3: #6b7885;
+  --line: #e8edf1;
+  --edge: rgba(20, 44, 68, 0.12);
+  --accent: #1d6fa8;
+  /* Opaque: the panel header is sticky, and 3% translucency let scrolled
+     text ghost through it. */
+  --surface: #ffffff;
+  --hover: #eef3f7;
+  --sunken: #eaeef2;
+  --track: #dde4ea;
+  --caution: #cf9b31;
+  --alert: #bc563b;
+  /* 3.4:1 against white — a graphical boundary, not decoration: the "zero"
+     swatch is literally white and must not read as a hole in the card. */
+  --swatch-edge: #7f8e9b;
+}
+
 html,
 body,
 #root {
@@ -19,9 +45,11 @@ body {
     Roboto,
     "Helvetica Neue",
     sans-serif;
-  color: #1c2733;
+  color: var(--ink);
   background: #f4f7f9;
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
 }
 
 .atlas {
@@ -42,7 +70,7 @@ body {
   justify-content: center;
   padding: 1rem;
   text-align: center;
-  color: #33424f;
+  color: var(--ink-2);
 }
 
 .app-message {
@@ -54,110 +82,158 @@ body {
   justify-content: center;
   padding: 1.5rem;
   text-align: center;
-  color: #33424f;
+  color: var(--ink-2);
 }
 
-/* --- one shared surface ------------------------------------------------ */
-/* Every floating element uses the same tokens so the screen reads as one
-   system rather than as separate stray boxes. */
+/* --- one shared surface -------------------------------------------------
+   No hard border: a hairline ring drawn as a shadow keeps the edge legible
+   over pale ocean without adding a visible line to the composition. */
 
 .card {
   position: absolute;
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid #ccd6dd;
-  border-radius: 10px;
-  box-shadow: 0 2px 12px rgba(15, 39, 64, 0.14);
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px var(--edge),
+    0 4px 16px -4px rgba(15, 39, 64, 0.22);
+}
+
+/* --- shared control primitives ----------------------------------------- */
+
+.field-label {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--ink-3);
+}
+
+/* One focus treatment everywhere, so focus is never a surprise. */
+:where(a, button, select, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Borderless, transparent at rest; the affordance arrives on hover/focus. */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.icon-button svg {
+  display: block;
+  fill: currentColor;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.icon-button:disabled {
+  color: #b6c0c9;
+  cursor: default;
 }
 
 /* --- control rail ------------------------------------------------------- */
 
 .rail {
-  top: 12px;
-  left: 12px;
+  top: 14px;
+  left: 14px;
   width: 292px;
-  max-height: calc(100% - 24px);
+  max-height: calc(100% - 28px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-/* Sections are divided by hairlines, never gaps: gaps are what made the
-   previous two cards read as two objects. */
 .rail-head {
-  padding: 10px 12px 8px;
-  border-bottom: 1px solid #e2e9ee;
+  padding: 13px 14px 0;
 }
 
 .rail-head h1 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .rail-subtitle {
-  margin: 2px 0 0;
-  font-size: 0.72rem;
-  color: #5a6b7a;
+  margin: 3px 0 0;
+  font-size: 0.75rem;
+  color: var(--ink-3);
 }
 
 .rail-body {
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+  scrollbar-width: thin;
 }
 
+/* Sections are separated by space, not rules. The single remaining hairline
+   is above the pinned key, where it marks a real scroll boundary. */
 .rail-section {
-  padding: 9px 12px;
-  border-bottom: 1px solid #e2e9ee;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 12px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
-.field-label {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #44576a;
-  letter-spacing: 0.02em;
-}
+/* --- select ------------------------------------------------------------- */
 
-.field select,
-.rail input[type="range"] {
+.field select {
   width: 100%;
-}
-
-.rail-note {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   margin: 0;
-  font-size: 0.72rem;
-  color: #7a5a1e;
-  background: #fdf3dc;
-  border-radius: 5px;
-  padding: 5px 7px;
-}
-
-.link-button {
-  border: none;
-  background: none;
-  padding: 0;
+  padding: 3px 24px 3px 6px;
+  border: 0;
+  border-radius: 7px;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236b7885' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
   font: inherit;
-  color: #23557d;
-  text-decoration: underline;
+  font-size: 0.875rem;
+  color: var(--ink);
   cursor: pointer;
+  /* The label above sits at x=6 too, so the column edge stays straight. */
+  margin-left: -6px;
+  transition: background-color 120ms ease;
 }
 
-/* --- segmented control (Total | Per capita) ----------------------------- */
+.field select:hover {
+  background-color: var(--hover);
+}
+
+/* --- segmented control (Total | Per capita) -----------------------------
+   A sunken track with a raised thumb: the selection reads from elevation
+   and weight, not from a saturated fill. */
 
 .segmented {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border: 1px solid #b7c4cf;
-  border-radius: 6px;
-  overflow: hidden;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--sunken);
 }
 
 .segment {
@@ -174,31 +250,69 @@ body {
 .segment-face {
   display: block;
   padding: 4px 6px;
+  border-radius: 6px;
   text-align: center;
-  font-size: 0.78rem;
-  background: #f2f6f9;
+  font-size: 0.8125rem;
+  color: var(--ink-2);
   cursor: pointer;
   user-select: none;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
-.segment + .segment .segment-face {
-  border-left: 1px solid #b7c4cf;
+.segment input:not(:checked):not(:disabled) + .segment-face:hover {
+  color: var(--ink);
 }
 
+/* The thumb must read as raised, not as the hole left by the other segment:
+   white fill, a faint ring and one step more weight and ink. */
 .segment input:checked + .segment-face {
-  background: #1d6fa8;
-  color: #fff;
-  font-weight: 600;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow:
+    0 0 0 1px rgba(20, 44, 68, 0.1),
+    0 1px 2px rgba(20, 44, 68, 0.18);
 }
 
 .segment input:disabled + .segment-face {
-  opacity: 0.45;
+  color: #b6c0c9;
   cursor: not-allowed;
 }
 
 .segment input:focus-visible + .segment-face {
-  outline: 2px solid #1d6fa8;
-  outline-offset: -2px;
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* --- notes -------------------------------------------------------------
+   A caveat is a sentence, not a coloured box. The 2px rule carries the hue
+   that the filled block used to carry, at a twentieth of the area. */
+
+.rail-note,
+.source-incomplete,
+.panel-missing {
+  margin: 0;
+  padding: 1px 0 1px 9px;
+  border-left: 2px solid var(--caution);
+  background: none;
+  font-size: 0.75rem;
+  color: var(--ink-2);
+}
+
+.panel-missing {
+  border-left-color: var(--alert);
+}
+
+.link-button {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* --- time --------------------------------------------------------------- */
@@ -207,74 +321,117 @@ body {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
 }
 
 .time-value {
-  font-size: 1.05rem;
+  font-size: 1rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 .time-loading {
-  font-size: 0.72rem;
-  color: #1d6fa8;
+  margin-right: auto;
+  font-size: 0.75rem;
+  color: var(--accent);
 }
 
-.time-range {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.68rem;
-  color: #7d8b98;
-  margin-top: -4px;
-}
-
-.transport {
-  display: grid;
-  grid-template-columns: 34px 1fr 34px;
+.rail-time {
   gap: 6px;
 }
 
-.transport button {
-  padding: 4px 6px;
-  border: 1px solid #b7c4cf;
-  border-radius: 5px;
-  background: #f2f6f9;
+/* Slim custom track. The filled portion is driven by --range-fill so WebKit,
+   which has no ::-moz-range-progress equivalent, still shows progress. */
+.year-range {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
   cursor: pointer;
-  font: inherit;
-  font-size: 0.78rem;
 }
 
-.transport button:disabled {
-  opacity: 0.45;
-  cursor: default;
+.year-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0 var(--range-fill, 0%),
+    var(--track) var(--range-fill, 0%) 100%
+  );
 }
 
-.transport button:focus-visible,
-.field select:focus-visible,
-.rail input:focus-visible,
-.panel-header button:focus-visible,
-.link-button:focus-visible {
-  outline: 2px solid #1d6fa8;
-  outline-offset: 1px;
+.year-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4.5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 0 0 1.5px var(--accent),
+    0 1px 2px rgba(20, 44, 68, 0.3);
+}
+
+.year-range::-moz-range-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--track);
+}
+
+.year-range::-moz-range-progress {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.year-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  background: #fff;
+}
+
+/* The span endpoints and the transport share one row: the numbers label the
+   ends of the track they sit under, and the buttons centre on its middle. */
+.time-foot {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  margin-top: -2px;
+}
+
+.time-bound {
+  font-size: 0.6875rem;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.time-foot .time-bound:last-child {
+  text-align: right;
+}
+
+.transport {
+  display: flex;
+  gap: 2px;
 }
 
 /* --- scale key (pinned: a short window must never hide the key) --------- */
 
 .scale-key {
-  border-bottom: none;
-  border-top: 1px solid #e2e9ee;
-  gap: 5px;
-}
-
-.scale-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  gap: 7px;
+  padding-bottom: 10px;
 }
 
 .scale-unit {
-  font-size: 0.72rem;
-  color: #5a6b7a;
+  font-size: 0.75rem;
+  color: var(--ink-2);
 }
 
 .scale-states {
@@ -282,20 +439,22 @@ body {
   margin: 0;
   padding: 0;
   display: flex;
-  gap: 12px;
-  font-size: 0.72rem;
+  gap: 14px;
+  font-size: 0.75rem;
+  color: var(--ink-2);
 }
 
 .legend-swatch {
   display: inline-block;
-  width: 12px;
-  height: 12px;
-  /* Over half of all source cells are exactly zero, so the white "Zero"
-     swatch must read as a deliberate colour, not as a hole in the card. */
-  border: 1px solid #8a99a6;
+  /* A wide chip, not a square: an 11px bordered square reads as an unticked
+     checkbox. Over half of all source cells are exactly zero, so the white
+     "Zero" swatch must read as a deliberate colour, not as a hole. */
+  width: 15px;
+  height: 9px;
+  border: 1px solid var(--swatch-edge);
   border-radius: 2px;
-  margin-right: 5px;
-  vertical-align: -1px;
+  margin-right: 6px;
+  vertical-align: 0;
 }
 
 .scale-ramp {
@@ -303,10 +462,10 @@ body {
   margin: 0;
   padding: 0;
   display: flex;
-  height: 12px;
-  border: 1px solid #8a99a6;
+  height: 8px;
   border-radius: 3px;
   overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--edge);
 }
 
 .scale-ramp li {
@@ -315,11 +474,11 @@ body {
 
 .scale-ticks {
   list-style: none;
-  margin: 0;
+  margin: -2px 0 0;
   padding: 0;
   display: flex;
-  font-size: 0.62rem;
-  color: #7d8b98;
+  font-size: 0.625rem;
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 
@@ -328,16 +487,19 @@ body {
 }
 
 .rail-foot {
-  padding: 7px 12px;
-  border-top: 1px solid #e2e9ee;
-  background: #f4f7f9;
+  padding: 0 14px 12px;
   display: flex;
-  gap: 12px;
-  font-size: 0.72rem;
+  gap: 14px;
+  font-size: 0.6875rem;
 }
 
 .rail-foot a {
-  color: #23557d;
+  color: var(--ink-3);
+  text-underline-offset: 2px;
+}
+
+.rail-foot a:hover {
+  color: var(--accent);
 }
 
 /* --- tooltip ----------------------------------------------------------- */
@@ -345,236 +507,286 @@ body {
 .map-tooltip {
   position: absolute;
   z-index: 5;
-  max-width: 240px;
+  max-width: 232px;
   pointer-events: none;
-  background: rgba(15, 39, 64, 0.92);
+  background: rgba(16, 32, 48, 0.9);
   color: #f2f6f9;
-  padding: 6px 8px;
-  border-radius: 5px;
-  font-size: 0.78rem;
+  padding: 6px 9px;
+  border-radius: 7px;
+  font-size: 0.75rem;
+  line-height: 1.4;
 }
 
 .tooltip-meta {
-  color: #b9cbd9;
-  font-size: 0.72rem;
+  color: #b3c5d3;
+  font-size: 0.6875rem;
 }
 
 /* --- country panel ------------------------------------------------------ */
 
 .country-panel {
-  top: 12px;
-  right: 12px;
+  top: 14px;
+  right: 14px;
   width: 328px;
-  max-height: calc(100% - 24px);
+  max-height: calc(100% - 28px);
   overflow-y: auto;
-  padding: 10px 12px 12px;
+  scrollbar-width: thin;
+  padding: 0 16px 16px;
 }
 
 .panel-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
   position: sticky;
-  top: -10px;
-  background: rgba(255, 255, 255, 0.97);
-  padding-top: 2px;
-  border-bottom: 1px solid #e2e9ee;
-  margin-bottom: 6px;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  padding: 13px 0 4px;
 }
 
 .panel-header h2 {
   margin: 0;
-  font-size: 1.05rem;
-}
-
-.panel-header button {
-  border: none;
-  background: none;
   font-size: 1rem;
-  cursor: pointer;
-  color: #44576a;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .panel-kind {
-  margin: 2px 0 8px;
+  margin: 0;
+  font-size: 0.6875rem;
+  color: var(--ink-3);
+}
+
+/* The headline: one metric, one number, one evidence statement. Everything
+   below it is reference material and is set quieter. */
+.panel-headline {
+  margin: 14px 0 0;
+}
+
+.panel-metric {
+  margin: 0;
   font-size: 0.75rem;
-  color: #5a6b7a;
+  color: var(--ink-3);
+}
+
+.panel-value {
+  margin: 1px 0 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-year {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--ink-3);
+  letter-spacing: 0;
+}
+
+.panel-evidence {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: var(--ink-2);
+}
+
+/* A per-capita value is observed electricity over a reconstructed population
+   estimate, so it must not read as a plain observation. The dot is a second
+   channel, never the only one: the words differ too. */
+.evidence-badge::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+
+.evidence-observed::before {
+  background: #4a8c57;
+}
+
+.evidence-derived::before {
+  background: #6b7cb8;
 }
 
 .panel-facts {
-  margin: 0 0 8px;
+  margin: 14px 0 0;
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 3px 10px;
-  font-size: 0.82rem;
+  grid-template-columns: 5.25rem 1fr;
+  gap: 6px 10px;
+  font-size: 0.75rem;
 }
 
 .panel-facts dt {
-  color: #44576a;
+  color: var(--ink-3);
 }
 
 .panel-facts dd {
   margin: 0;
+  color: var(--ink-2);
 }
 
-.evidence-badge {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: 8px;
-  font-size: 0.72rem;
+.panel-facts a {
+  color: var(--ink-2);
+  text-underline-offset: 2px;
 }
 
-.evidence-observed {
-  background: #dcefdd;
-  color: #1d5e2a;
-  border: 1px solid #b3d8b8;
+.panel-facts a:hover {
+  color: var(--accent);
 }
 
-/* A per-capita value is observed electricity over a reconstructed population
-   estimate, so it must not wear the plain "Observed" badge. */
-.evidence-derived {
-  background: #e7edf6;
-  color: #29426b;
-  border: 1px solid #bcc9de;
-}
-
-.panel-missing {
-  font-size: 0.8rem;
-  background: #f6e8e5;
-  color: #7c2d1d;
-  border-radius: 5px;
-  padding: 6px 8px;
+.panel-missing,
+.panel-loading {
+  margin-top: 12px;
 }
 
 .panel-loading {
-  font-size: 0.8rem;
-  color: #44576a;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
+.panel-chart {
+  margin-top: 14px;
 }
 
 .line-chart {
   width: 100%;
   height: auto;
+  display: block;
 }
 
 .chart-tick {
   font-size: 9px;
-  fill: #5a6b7a;
+  fill: var(--ink-3);
 }
 
 .panel-chart-caption {
   margin: 4px 0 0;
-  font-size: 0.72rem;
-  color: #5a6b7a;
+  font-size: 0.6875rem;
+  color: var(--ink-3);
 }
 
 /* --- generation mix ----------------------------------------------------- */
 
 .source-mix {
-  margin-top: 10px;
-  border-top: 1px solid #e2e9ee;
-  padding-top: 8px;
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
 }
 
 .source-mix h3 {
   margin: 0 0 6px;
-  font-size: 0.82rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ink-3);
 }
 
 .source-mix ul {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 .source-row button {
   display: grid;
-  grid-template-columns: 5.5rem 1fr auto;
+  grid-template-columns: 5.25rem 1fr auto;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
-  padding: 2px 4px;
-  border: 1px solid transparent;
-  border-radius: 4px;
+  padding: 3px 6px;
+  margin-left: -6px;
+  border: 0;
+  border-radius: 6px;
   background: none;
   font: inherit;
-  font-size: 0.76rem;
+  font-size: 0.75rem;
   text-align: left;
   cursor: pointer;
-  color: inherit;
+  color: var(--ink-2);
+  transition: background-color 120ms ease;
 }
 
 .source-row button:hover {
-  background: #eef4f8;
+  background: var(--hover);
+  color: var(--ink);
 }
 
 .source-row.selected button {
-  border-color: #1d6fa8;
-  background: #e8f2f9;
-  font-weight: 600;
+  background: var(--hover);
+  color: var(--ink);
+  font-weight: 500;
 }
 
-.source-row button:focus-visible {
-  outline: 2px solid #1d6fa8;
-  outline-offset: 1px;
-}
-
+/* No track behind the bar: an empty row is empty, and the value column
+   already separates a reported zero from an unreported source. */
 .source-bar {
   display: block;
-  height: 7px;
-  background: #e2e9ee;
-  border-radius: 3px;
+  height: 4px;
+  border-radius: 999px;
   overflow: hidden;
 }
 
 .source-bar span {
   display: block;
   height: 100%;
-  background: #1d91c0;
+  border-radius: 999px;
+  background: #8fb8d2;
+}
+
+.source-row.selected .source-bar span {
+  background: var(--accent);
 }
 
 .source-value {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  color: var(--ink);
 }
 
 .source-value em {
-  color: #7a6a4a;
+  color: var(--ink-3);
   font-style: normal;
 }
 
 .source-share {
-  color: #5a6b7a;
+  color: var(--ink-3);
 }
 
 .source-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
   margin: 6px 0 0;
-  font-size: 0.78rem;
-  color: #44576a;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
+.source-total strong {
+  font-weight: 500;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 .source-incomplete {
-  margin: 6px 0 0;
-  font-size: 0.72rem;
-  color: #7a5a1e;
-  background: #fdf3dc;
-  border-radius: 5px;
-  padding: 5px 7px;
+  margin-top: 10px;
 }
 
 .data-error {
   position: absolute;
-  top: 12px;
+  top: 14px;
   left: 50%;
   transform: translateX(-50%);
   background: #7c2d1d;
   color: #fff;
   padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.8rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
   z-index: 6;
 }
 
@@ -588,6 +800,42 @@ body {
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* --- map chrome ---------------------------------------------------------
+   MapLibre's own controls are part of the composition, so they get the same
+   surface as the rail instead of default browser-grey. Attribution stays
+   fully visible — it is a licence term, not decoration — but it stops
+   shouting: 6.3:1 text on a 90%-opaque plate. */
+
+.maplibregl-ctrl-group {
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--edge),
+    0 4px 16px -4px rgba(15, 39, 64, 0.22);
+}
+
+.maplibregl-ctrl-group button {
+  width: 28px;
+  height: 28px;
+}
+
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--line);
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px 0 0 0;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  line-height: 1.6;
+  color: #4a5764;
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib a {
+  color: #23557d;
 }
 
 /* --- mobile ------------------------------------------------------------- */
@@ -608,6 +856,36 @@ body {
     bottom: 8px;
     width: auto;
     max-height: 60%;
+  }
+
+  /* Quiet, but still thumb-sized. */
+  .icon-button {
+    width: 34px;
+    height: 34px;
+  }
+
+  .segment-face {
+    padding: 8px 6px;
+  }
+
+  .field select {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .year-range {
+    height: 28px;
+  }
+
+  .year-range::-webkit-slider-thumb {
+    width: 16px;
+    height: 16px;
+    margin-top: -6.5px;
+  }
+
+  .year-range::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
   }
 }
 

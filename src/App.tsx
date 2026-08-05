@@ -319,10 +319,12 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
       : `${dataset.metricTitle} from ${dataset.title}`
   // A per-capita figure is observed electricity divided by a reconstructed
   // population estimate, so it inherits the weaker of the two.
+  // The year span is not repeated here: the slider prints its own endpoints
+  // from the same array, two rows below.
   const evidenceLine =
     basis === "per-capita"
-      ? `Observed electricity ÷ reconstructed population · ${availableYears[0]}–${availableYears.at(-1)} · country resolution`
-      : `Observed data · ${dataset.years[0]}–${dataset.years.at(-1)} · country resolution`
+      ? "Observed electricity ÷ reconstructed population"
+      : "Observed data · by country"
   const announcement = `${datasetLabel}, ${basis === "per-capita" ? "per capita" : "total"}, ${year}${
     selectedName ? `, ${selectedName}` : ""
   }`

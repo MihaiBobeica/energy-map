@@ -217,9 +217,13 @@ describe("Atlas UI", () => {
     expect(screen.getByRole("slider", { name: "Year" })).toBeInTheDocument()
     // defaultYear from the manifest, not the sparse latest year
     expect(screen.getByTestId("year-value")).toHaveTextContent("2024")
-    expect(screen.getByLabelText("Legend")).toBeInTheDocument()
+    const legend = screen.getByLabelText("Legend")
+    expect(legend).toBeInTheDocument()
     expect(screen.getByText("Not reported")).toBeInTheDocument()
-    expect(screen.getByText("Zero TWh")).toBeInTheDocument()
+    // The zero state is labelled without repeating the unit, which the key
+    // prints once directly above it.
+    expect(within(legend).getByText("Zero")).toBeInTheDocument()
+    expect(within(legend).getByText("TWh")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Sources" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Methodology" })).toBeInTheDocument()
     expect(screen.getByTestId("map-container")).toBeInTheDocument()
@@ -315,8 +319,11 @@ describe("Atlas UI", () => {
     fireEvent.click(perCapita)
 
     expect(window.location.search).toContain("basis=per-capita")
-    // The legend's zero label follows the active unit.
-    expect(await screen.findByText("Zero kWh per person")).toBeInTheDocument()
+    // The legend's stated unit follows the active basis, and the zero state
+    // stays labelled beside it.
+    const legend = await screen.findByLabelText("Legend")
+    expect(within(legend).getByText("kWh per person")).toBeInTheDocument()
+    expect(within(legend).getByText("Zero")).toBeInTheDocument()
   })
 
   it("shrinks the timeline to years that have a population denominator", async () => {
