@@ -1,0 +1,38 @@
+name: Build data
+
+# Manual for now: fetches permitted automated sources, builds normalized
+# data and tiles, runs validation, and reports coverage/licence/size —
+# without committing anything. Automated commits may be configured later,
+# explicitly.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-data:
+    name: Run data pipeline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pipeline/pyproject.toml
+
+      - name: Install pipeline package
+        run: pip install -e ./pipeline[dev]
+
+      - name: Pipeline tests
+        run: pytest pipeline
+
+      # Pipeline stages are introduced by phase (docs/requirements.md §6).
+      # As stages land, they are added here in order:
+      #   download → normalize → validate-raw → build-geographies →
+      #   build-country-series → … → build-tiles → export-static →
+      #   build-coverage-report → verify-licenses → verify-output
+      - name: Verify deployable data output
+        run: energy-map-pipeline verify-output --data-root public/data
+
+      - name: Report generated data size
+        run: du -sh public/data && du -ah public/data | sort -rh | head -20
