@@ -160,6 +160,12 @@ class TestExportStatic:
         # verify-output accepts the export, including checksums
         assert verify_output(out) == 0
 
+    def test_output_uses_lf_line_endings_on_every_platform(self, raw_root, tmp_path, capsys):
+        out = tmp_path / "out"
+        export_static(raw_root, out)
+        for path in out.rglob("*.json"):
+            assert b"\r" not in path.read_bytes(), f"{path.name} contains CR bytes"
+
     def test_export_is_deterministic(self, raw_root, tmp_path, capsys):
         out1 = tmp_path / "out1"
         out2 = tmp_path / "out2"

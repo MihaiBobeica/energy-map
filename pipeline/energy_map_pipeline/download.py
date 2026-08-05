@@ -59,7 +59,7 @@ def download_all(raw_root: Path) -> int:
 
     manifest_path = raw_root / "download-manifest.json"
     manifest_path.write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
     )
     print(f"download: wrote {manifest_path}")
     return 0

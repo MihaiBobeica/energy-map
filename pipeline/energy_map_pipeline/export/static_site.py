@@ -30,9 +30,12 @@ def _round_value(value: float) -> float:
 
 def _write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    # newline="\n" keeps output byte-identical across platforms — Windows'
+    # default text-mode translation would break checksums against a Linux CI.
     path.write_text(
         json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
 

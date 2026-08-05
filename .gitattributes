@@ -1,0 +1,2 @@
+# Generated data must be byte-identical across platforms (checksummed).
+public/data/** text eol=lf
