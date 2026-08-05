@@ -9,21 +9,16 @@ the UI must never contradict it.
 Every displayed observation has exactly one evidence classification:
 
 ```ts
-type EvidenceType =
-  | "observed"
-  | "reconstructed"
-  | "allocated"
-  | "proxy"
-  | "missing"
+type EvidenceType = "observed" | "reconstructed" | "allocated" | "proxy" | "missing"
 ```
 
-| Type            | Definition                                                                                  | Examples                                                        |
-| --------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `observed`      | Directly reported by a statistical authority, grid operator or documented dataset           | OWID/Ember country generation; EIA state data; UK 1920+ series  |
-| `reconstructed` | Produced from historical records through a documented reconstruction                        | Global primary energy 1800+; HYDE population grids              |
-| `allocated`     | A measured parent total distributed across smaller areas through a model                    | City demand estimated from national demand + weights            |
-| `proxy`         | A related indicator, not the metric itself                                                  | Nighttime-light radiance; built-up surface; population density  |
-| `missing`       | No defensible value exists                                                                  | City electricity in 1700; demand for unreported country-years   |
+| Type            | Definition                                                                        | Examples                                                       |
+| --------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `observed`      | Directly reported by a statistical authority, grid operator or documented dataset | OWID/Ember country generation; EIA state data; UK 1920+ series |
+| `reconstructed` | Produced from historical records through a documented reconstruction              | Global primary energy 1800+; HYDE population grids             |
+| `allocated`     | A measured parent total distributed across smaller areas through a model          | City demand estimated from national demand + weights           |
+| `proxy`         | A related indicator, not the metric itself                                        | Nighttime-light radiance; built-up surface; population density |
+| `missing`       | No defensible value exists                                                        | City electricity in 1700; demand for unreported country-years  |
 
 Rules:
 
@@ -93,13 +88,13 @@ data, the UI states this explicitly.
 All derived metrics inherit the **weakest** evidence classification of their
 inputs and record a methodology ID.
 
-| Metric                  | Formula                                             | Notes                                                     |
-| ----------------------- | --------------------------------------------------- | --------------------------------------------------------- |
-| Generation per capita   | generation ÷ population                             | population source and vintage recorded; null if either input missing |
-| Demand per capita       | demand ÷ population                                 | same                                                      |
-| Share of global total   | value ÷ world total for same metric/year            | world total must come from the same source family         |
-| Net imports             | demand − generation (or source-reported net flow)   | one documented sign convention: **positive = net importer** |
-| Absolute/percent change | value(t) − value(t₀); ÷ value(t₀)                   | only between real time points; never across interpolations |
+| Metric                  | Formula                                           | Notes                                                                |
+| ----------------------- | ------------------------------------------------- | -------------------------------------------------------------------- |
+| Generation per capita   | generation ÷ population                           | population source and vintage recorded; null if either input missing |
+| Demand per capita       | demand ÷ population                               | same                                                                 |
+| Share of global total   | value ÷ world total for same metric/year          | world total must come from the same source family                    |
+| Net imports             | demand − generation (or source-reported net flow) | one documented sign convention: **positive = net importer**          |
+| Absolute/percent change | value(t) − value(t₀); ÷ value(t₀)                 | only between real time points; never across interpolations           |
 
 Unit conventions: electricity in TWh (display auto-scales to GWh/MWh);
 capacity in MW; primary energy in TWh (with source-original units recorded);
@@ -167,14 +162,14 @@ Never simply "Observed electricity consumption". Confidence
 
 ### Historical allocation windows
 
-| Period    | Permitted basis                                                          |
-| --------- | ------------------------------------------------------------------------ |
+| Period    | Permitted basis                                                                          |
+| --------- | ---------------------------------------------------------------------------------------- |
 | 1700–1799 | Population and land-use context only, unless a defensible energy reconstruction is found |
-| 1800–1879 | Global energy totals plus historical activity context                    |
-| 1880–1974 | Selected national electricity records, plants and population-based context |
-| 1975–1991 | GHSL population and built-up indicators may support experimental allocation |
-| 1992–2011 | DMSP plus population and built-up indicators                             |
-| 2012–     | VIIRS plus GHSL and infrastructure indicators                            |
+| 1800–1879 | Global energy totals plus historical activity context                                    |
+| 1880–1974 | Selected national electricity records, plants and population-based context               |
+| 1975–1991 | GHSL population and built-up indicators may support experimental allocation              |
+| 1992–2011 | DMSP plus population and built-up indicators                                             |
+| 2012–     | VIIRS plus GHSL and infrastructure indicators                                            |
 
 ## Nighttime-light treatment
 

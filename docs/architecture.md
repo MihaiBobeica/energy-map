@@ -25,17 +25,17 @@ set of static files in `public/data/`.
 
 ## 2. Frontend stack
 
-| Concern         | Choice                                        | Rationale (ADR)                                   |
-| --------------- | --------------------------------------------- | ------------------------------------------------- |
-| UI framework    | React 19 + TypeScript strict                  | ADR-1                                             |
-| Build           | Vite, `base: "/energy-map/"`                  | project-page deployment requires the repo path    |
-| Map             | MapLibre GL JS                                | ADR-2: WebGL vector maps, no token, no paid tiles |
-| Tiles           | PMTiles (static single-file archives)         | ADR-3: no tile backend on Pages                   |
-| Charts          | Recharts (+ d3-scale/d3-format utilities)     | lightweight, declarative React charts             |
-| State           | Focused React contexts + URLSearchParams      | ADR-4: no Redux until a concrete need appears     |
-| Unit tests      | Vitest + React Testing Library                |                                                   |
-| E2E             | Playwright                                    | smoke suite against `vite preview`                |
-| Lint/format     | ESLint (typescript-eslint) + Prettier         |                                                   |
+| Concern      | Choice                                    | Rationale (ADR)                                   |
+| ------------ | ----------------------------------------- | ------------------------------------------------- |
+| UI framework | React 19 + TypeScript strict              | ADR-1                                             |
+| Build        | Vite, `base: "/energy-map/"`              | project-page deployment requires the repo path    |
+| Map          | MapLibre GL JS                            | ADR-2: WebGL vector maps, no token, no paid tiles |
+| Tiles        | PMTiles (static single-file archives)     | ADR-3: no tile backend on Pages                   |
+| Charts       | Recharts (+ d3-scale/d3-format utilities) | lightweight, declarative React charts             |
+| State        | Focused React contexts + URLSearchParams  | ADR-4: no Redux until a concrete need appears     |
+| Unit tests   | Vitest + React Testing Library            |                                                   |
+| E2E          | Playwright                                | smoke suite against `vite preview`                |
+| Lint/format  | ESLint (typescript-eslint) + Prettier     |                                                   |
 
 Routing: query-parameter state on a single page (`?mode=…&metric=…&year=…`).
 No history-based router — deep links must work on GitHub Pages without a
@@ -161,7 +161,7 @@ Workflows:
 - **deploy-pages.yml** — push to `main`: run the full check suite, build
   `dist`, then `actions/configure-pages` → `actions/upload-pages-artifact` →
   `actions/deploy-pages` with `permissions: contents: read, pages: write,
-  id-token: write` and the `github-pages` environment. Deploys only after
+id-token: write` and the `github-pages` environment. Deploys only after
   all checks pass.
 - **build-data.yml** — manual `workflow_dispatch`: fetch permitted automated
   sources, validate versions, accept manual restricted-form sources, build

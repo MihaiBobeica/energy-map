@@ -6,7 +6,7 @@ from 1700 to the latest complete year.
 
 **Live:** <https://mihaibobeica.github.io/energy-map/>
 
-> **Read this first — what the map does *not* claim.**
+> **Read this first — what the map does _not_ claim.**
 > Equivalent electricity data does **not** exist across the whole
 > 1700–present period. The timeline starts in 1700, but early periods show
 > population, land-use and activity **proxies**, not electricity. Broad
@@ -21,16 +21,16 @@ from 1700 to the latest complete year.
 
 ## Evidence classifications
 
-| Class           | Meaning                                                                    |
-| --------------- | -------------------------------------------------------------------------- |
+| Class           | Meaning                                                                           |
+| --------------- | --------------------------------------------------------------------------------- |
 | `observed`      | Directly reported by a statistical authority, grid operator or documented dataset |
-| `reconstructed` | Produced from historical records through a documented reconstruction       |
-| `allocated`     | A measured parent total distributed across smaller areas through a model   |
-| `proxy`         | A related indicator (population, nighttime light, built-up area)           |
-| `missing`       | No defensible value exists — never rendered as zero                        |
+| `reconstructed` | Produced from historical records through a documented reconstruction              |
+| `allocated`     | A measured parent total distributed across smaller areas through a model          |
+| `proxy`         | A related indicator (population, nighttime light, built-up area)                  |
+| `missing`       | No defensible value exists — never rendered as zero                               |
 
-**Estimation warning:** allocated city/regional values are *"estimated
-spatial allocations of an observed parent total"*, produced by a versioned,
+**Estimation warning:** allocated city/regional values are _"estimated
+spatial allocations of an observed parent total"_, produced by a versioned,
 validated model — they are not measurements, and the UI labels them
 accordingly. Nighttime lights are a proxy input and never presented as
 electricity itself.
@@ -43,7 +43,7 @@ phases. See [docs/requirements.md](docs/requirements.md) for the phase plan.
 
 ## Screenshots
 
-*Screenshots will be added once the first data slice is deployed.*
+_Screenshots will be added once the first data slice is deployed._
 
 ## Local setup
 

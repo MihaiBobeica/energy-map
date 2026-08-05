@@ -209,32 +209,32 @@ API · a PostGIS database · a conventional tile server
 
 ## 6. Implementation phases
 
-| Phase | Scope                                                                                  |
-| ----- | -------------------------------------------------------------------------------------- |
-| 0     | Requirements, architecture, source register, coverage matrices, risk register (this docs set) |
-| 1     | Repository foundation: React/Vite/TS, testing, CI, Pages deployment, empty map shell, manifest loading, error boundaries, attribution |
+| Phase | Scope                                                                                                                                        |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | Requirements, architecture, source register, coverage matrices, risk register (this docs set)                                                |
+| 1     | Repository foundation: React/Vite/TS, testing, CI, Pages deployment, empty map shell, manifest loading, error boundaries, attribution        |
 | 2     | Country electricity vertical slice: Natural Earth geometry, OWID generation/demand, timeline, choropleth, tooltip, country panel, line chart |
-| 3     | Historical time model: 1700 start, HYDE population context, global primary energy from 1800, UK 1920 / NL 1919 series, sparse timeline |
-| 4     | Plants: manual GEM import, normalization, PMTiles, clusters, filters, plant panel, GEM attribution |
-| 5     | Regions: geoBoundaries admin-1, US EIA state adapter, zoom-based transitions, parent–child comparison |
-| 6     | Cities: GHSL urban centres, population/built-up features, city search and panel |
-| 7     | Allocation model: population/built-up baselines, DMSP + VIIRS features, calibration, cross-validation, reconciliation |
-| 8     | Optimization and release: PMTiles optimization, lazy-loading, mobile polish, accessibility, e2e, docs, licence review |
+| 3     | Historical time model: 1700 start, HYDE population context, global primary energy from 1800, UK 1920 / NL 1919 series, sparse timeline       |
+| 4     | Plants: manual GEM import, normalization, PMTiles, clusters, filters, plant panel, GEM attribution                                           |
+| 5     | Regions: geoBoundaries admin-1, US EIA state adapter, zoom-based transitions, parent–child comparison                                        |
+| 6     | Cities: GHSL urban centres, population/built-up features, city search and panel                                                              |
+| 7     | Allocation model: population/built-up baselines, DMSP + VIIRS features, calibration, cross-validation, reconciliation                        |
+| 8     | Optimization and release: PMTiles optimization, lazy-loading, mobile polish, accessibility, e2e, docs, licence review                        |
 
 ## 7. Risk register
 
-| ID  | Risk                                                                | Likelihood | Impact | Mitigation                                                                                   |
-| --- | ------------------------------------------------------------------- | ---------- | ------ | -------------------------------------------------------------------------------------------- |
-| R1  | Source licence forbids redistribution of processed output           | Medium     | High   | Verify licence before redistribution; exclude source on failure; machine-readable licence manifest |
-| R2  | Source schema drift breaks pipeline                                 | High       | Medium | Adapters fail loudly on schema drift; pinned dataset versions; checksums                     |
-| R3  | Site size exceeds GitHub Pages 1 GB limit                           | Medium     | High   | `check-site-size.sh` in CI; PMTiles simplification; data chunking budget per layer           |
-| R4  | Initial load exceeds 5 MB budget                                    | Medium     | Medium | Manifest + selected-year loading only; lazy layers; CI bundle-size check                     |
-| R5  | Allocated values misread as measurements                            | Medium     | High   | Mandatory evidence badges; "hide estimates" toggle; labelling rules in methodology           |
-| R6  | DMSP→VIIRS discontinuity produces spurious trends                   | High       | Medium | Documented inter-calibration before any cross-sensor series; separate model versions per sensor era |
-| R7  | GEM download requires manual form; automation not permitted         | High       | Low    | Manual import command from local ignored directory; documented in pipeline README            |
-| R8  | Historical boundaries anachronistic for pre-1900 data               | High       | Medium | Boundary convention labelled on every historical view; historical boundary support tracked as Should-have |
-| R9  | GitHub Pages bandwidth soft limit (100 GB/month) exceeded           | Low        | Medium | Immutable versioned files with long cache lifetimes; small default payloads                  |
-| R10 | Pipeline dependencies (geopandas/rasterio) fail on CI runners       | Medium     | Low    | Wheels-only installs; geo dependencies isolated in an optional extra until needed            |
+| ID  | Risk                                                          | Likelihood | Impact | Mitigation                                                                                                |
+| --- | ------------------------------------------------------------- | ---------- | ------ | --------------------------------------------------------------------------------------------------------- |
+| R1  | Source licence forbids redistribution of processed output     | Medium     | High   | Verify licence before redistribution; exclude source on failure; machine-readable licence manifest        |
+| R2  | Source schema drift breaks pipeline                           | High       | Medium | Adapters fail loudly on schema drift; pinned dataset versions; checksums                                  |
+| R3  | Site size exceeds GitHub Pages 1 GB limit                     | Medium     | High   | `check-site-size.sh` in CI; PMTiles simplification; data chunking budget per layer                        |
+| R4  | Initial load exceeds 5 MB budget                              | Medium     | Medium | Manifest + selected-year loading only; lazy layers; CI bundle-size check                                  |
+| R5  | Allocated values misread as measurements                      | Medium     | High   | Mandatory evidence badges; "hide estimates" toggle; labelling rules in methodology                        |
+| R6  | DMSP→VIIRS discontinuity produces spurious trends             | High       | Medium | Documented inter-calibration before any cross-sensor series; separate model versions per sensor era       |
+| R7  | GEM download requires manual form; automation not permitted   | High       | Low    | Manual import command from local ignored directory; documented in pipeline README                         |
+| R8  | Historical boundaries anachronistic for pre-1900 data         | High       | Medium | Boundary convention labelled on every historical view; historical boundary support tracked as Should-have |
+| R9  | GitHub Pages bandwidth soft limit (100 GB/month) exceeded     | Low        | Medium | Immutable versioned files with long cache lifetimes; small default payloads                               |
+| R10 | Pipeline dependencies (geopandas/rasterio) fail on CI runners | Medium     | Low    | Wheels-only installs; geo dependencies isolated in an optional extra until needed                         |
 
 ## 8. Working rules
 

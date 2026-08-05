@@ -25,24 +25,24 @@ published data files.
 The application shows visible attribution in the map attribution control and
 a dedicated "Sources & licences" view. Planned statements:
 
-| Source                       | Attribution statement                                                                                     | Licence                    |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------- |
-| Our World in Data            | "Data: Our World in Data (ourworldindata.org), CC BY 4.0, with underlying sources as documented per series" | CC BY 4.0 (OWID work); underlying terms vary |
-| Ember                        | "Electricity data: Ember (ember-energy.org), CC BY 4.0" — where Ember data is used directly or via OWID    | CC BY 4.0 (verify per dataset) |
-| Energy Institute             | Attribution required where the Statistical Review underlies OWID series — exact terms to verify            | To verify                  |
-| Global Energy Monitor        | "Power plant data: Global Energy Monitor, Global Integrated Power Tracker, CC BY 4.0" + required notices   | CC BY 4.0 (per GEM public licence page) |
-| geoBoundaries                | "Administrative boundaries: geoBoundaries (gbOpen), CC BY 4.0 — Runfola et al."                            | CC BY 4.0                  |
-| GHSL / European Commission   | "Urban centres & built-up data: European Commission, Joint Research Centre — Global Human Settlement Layer" | Free reuse with attribution (verify per product) |
-| HYDE / PBL & Utrecht Univ.   | "Historical population & land use: HYDE (PBL Netherlands Environmental Assessment Agency / Utrecht University)" | To verify              |
-| EOG / Colorado School of Mines | "DMSP nighttime lights: Earth Observation Group, Colorado School of Mines"                               | To verify                  |
-| NASA Black Marble            | "VIIRS nighttime lights: NASA Black Marble (VNP46 series)"                                                 | NASA data policy (attribution) |
-| US EIA                       | "US state electricity data: U.S. Energy Information Administration"                                        | Public domain (verify)     |
-| CBS Netherlands              | "Netherlands electricity balance: Statistics Netherlands (CBS)"                                            | CC BY 4.0 (verify)         |
-| UK Government                | "UK historical electricity data: Department for Energy Security and Net Zero, Open Government Licence v3.0" | OGL v3.0 (verify)          |
-| Natural Earth                | "Boundaries: Natural Earth (public domain)" — included although optional                                   | Public domain (verified)   |
-| GISCO / Eurostat             | "NUTS boundaries: © EuroGeographics for the administrative boundaries" (required wording to verify)        | To verify                  |
-| MapLibre GL JS               | Library licence notice shipped in bundle metadata                                                          | BSD-3-Clause               |
-| PMTiles / Protomaps          | Library licence notice shipped in bundle metadata                                                          | BSD-3-Clause               |
+| Source                         | Attribution statement                                                                                           | Licence                                          |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Our World in Data              | "Data: Our World in Data (ourworldindata.org), CC BY 4.0, with underlying sources as documented per series"     | CC BY 4.0 (OWID work); underlying terms vary     |
+| Ember                          | "Electricity data: Ember (ember-energy.org), CC BY 4.0" — where Ember data is used directly or via OWID         | CC BY 4.0 (verify per dataset)                   |
+| Energy Institute               | Attribution required where the Statistical Review underlies OWID series — exact terms to verify                 | To verify                                        |
+| Global Energy Monitor          | "Power plant data: Global Energy Monitor, Global Integrated Power Tracker, CC BY 4.0" + required notices        | CC BY 4.0 (per GEM public licence page)          |
+| geoBoundaries                  | "Administrative boundaries: geoBoundaries (gbOpen), CC BY 4.0 — Runfola et al."                                 | CC BY 4.0                                        |
+| GHSL / European Commission     | "Urban centres & built-up data: European Commission, Joint Research Centre — Global Human Settlement Layer"     | Free reuse with attribution (verify per product) |
+| HYDE / PBL & Utrecht Univ.     | "Historical population & land use: HYDE (PBL Netherlands Environmental Assessment Agency / Utrecht University)" | To verify                                        |
+| EOG / Colorado School of Mines | "DMSP nighttime lights: Earth Observation Group, Colorado School of Mines"                                      | To verify                                        |
+| NASA Black Marble              | "VIIRS nighttime lights: NASA Black Marble (VNP46 series)"                                                      | NASA data policy (attribution)                   |
+| US EIA                         | "US state electricity data: U.S. Energy Information Administration"                                             | Public domain (verify)                           |
+| CBS Netherlands                | "Netherlands electricity balance: Statistics Netherlands (CBS)"                                                 | CC BY 4.0 (verify)                               |
+| UK Government                  | "UK historical electricity data: Department for Energy Security and Net Zero, Open Government Licence v3.0"     | OGL v3.0 (verify)                                |
+| Natural Earth                  | "Boundaries: Natural Earth (public domain)" — included although optional                                        | Public domain (verified)                         |
+| GISCO / Eurostat               | "NUTS boundaries: © EuroGeographics for the administrative boundaries" (required wording to verify)             | To verify                                        |
+| MapLibre GL JS                 | Library licence notice shipped in bundle metadata                                                               | BSD-3-Clause                                     |
+| PMTiles / Protomaps            | Library licence notice shipped in bundle metadata                                                               | BSD-3-Clause                                     |
 
 "To verify" entries must reach `verified` status in the source register
 before the corresponding data ships.
