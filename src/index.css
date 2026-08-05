@@ -630,6 +630,12 @@ body {
   color: var(--ink-2);
 }
 
+/* Qualifies a fact without shouting: the number is still the number, but its
+   kind is stated inline rather than left to a footnote. */
+.fact-qualifier {
+  color: var(--ink-3);
+}
+
 .panel-facts a {
   color: var(--ink-2);
   text-underline-offset: 2px;

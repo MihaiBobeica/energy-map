@@ -45,6 +45,8 @@ type ControlRailProps = {
   evidenceLine: string
   perCapitaAvailable: boolean
   perCapitaLastYear: number | null
+  populationIsProjected: boolean
+  projectedFromYear: number | null
   onSelectDataset: (metric: string, energySource: string | null) => void
   onBasisChange: (basis: Basis) => void
   onYearChange: (year: number) => void
@@ -71,6 +73,8 @@ export function ControlRail({
   evidenceLine,
   perCapitaAvailable,
   perCapitaLastYear,
+  populationIsProjected,
+  projectedFromYear,
   onSelectDataset,
   onBasisChange,
   onYearChange,
@@ -254,10 +258,11 @@ export function ControlRail({
               {years[lastIndex]}
             </span>
           </div>
-          {basis === "per-capita" && perCapitaLastYear !== null && (
+          {/* The denominator changes kind partway along the timeline, and that
+              is a difference in what the number means — not a footnote. */}
+          {populationIsProjected && projectedFromYear !== null && (
             <p className="rail-note">
-              Per capita ends at {perCapitaLastYear}: population estimates stop there and are not
-              extrapolated.
+              Population from {projectedFromYear} is a UN projection, not an estimate.
             </p>
           )}
           {coverageNote && <p className="rail-note">{coverageNote}</p>}

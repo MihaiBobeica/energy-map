@@ -240,11 +240,18 @@ def export_static(raw_root: Path, out_root: Path) -> int:
 
     # Population is the per-capita denominator only; it is never an energy
     # metric and is published as its own series with its own licence.
+    # Cap the denominator at the last year any electricity dataset covers: the
+    # source projects to 2100, and a per-capita year with no numerator is
+    # meaningless.
+    last_electricity_year = max(
+        year for dataset in datasets for by_year in dataset.values.values() for year in by_year
+    )
     population = population_adapter.parse_population_csv(
         (raw_root / f"owid/{population_adapter.RAW_NAME}.csv").read_text(encoding="utf-8"),
         owid.dataset_version_from_metadata(
             raw_root / f"owid/{population_adapter.RAW_NAME}.metadata.json"
         ),
+        max_year=last_electricity_year,
     )
 
     source_sum_report = _check_source_sums(datasets, iso3_to_country)
@@ -405,6 +412,9 @@ def export_static(raw_root: Path, out_root: Path) -> int:
             # UN WPP estimates are cohort-component reconstructions, restated
             # by each revision — not annual observed headcounts.
             "evidenceType": "reconstructed",
+            # Years from here on use the UN medium-variant projection rather
+            # than an estimate; the UI labels those values differently.
+            "projectedFromYear": population.projected_from_year,
             "sourceId": population_adapter.SOURCE_ID,
             "unit": "people",
             "values": population_values,
@@ -491,11 +501,22 @@ def export_static(raw_root: Path, out_root: Path) -> int:
                         "Evidence type is reconstructed: UN WPP estimates are cohort-component "
                         "reconstructions restated by each revision, not annual observed counts. "
                         "A per-capita value therefore inherits reconstructed, not observed.",
-                        "No population estimates exist after {last}, so per-capita is "
-                        "unavailable for later years rather than extrapolated.".format(
-                            last=population.years[-1]
-                        ),
-                    ],
+                    ]
+                    + (
+                        [
+                            "{first}-{last} use the UN WPP 2024 MEDIUM-VARIANT PROJECTION, not "
+                            "an estimate: UN estimates end at {before}, while electricity data "
+                            "runs to {last}. Projection-backed years are tagged in "
+                            "population.json and labelled separately in the UI so a projected "
+                            "denominator is never presented as an estimated one.".format(
+                                first=population.projected_from_year,
+                                before=population.projected_from_year - 1,
+                                last=population.years[-1],
+                            )
+                        ]
+                        if population.projected_from_year is not None
+                        else []
+                    ),
                     "publisher": "Our World in Data",
                     "retrievedAt": retrieved_at,
                     "url": "https://ourworldindata.org/grapher/population",
@@ -550,6 +571,7 @@ def export_static(raw_root: Path, out_root: Path) -> int:
                 "datasetVersion": population.dataset_version,
                 "evidenceType": "reconstructed",
                 "path": "population.json",
+                "projectedFromYear": population.projected_from_year,
                 "sourceId": population_adapter.SOURCE_ID,
                 "unit": "people",
                 "years": population.years,

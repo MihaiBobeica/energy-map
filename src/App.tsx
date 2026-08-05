@@ -104,9 +104,9 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
   const yearFile = yearState.file
   const yearLoading = yearKey !== "" && yearState.key !== yearKey
 
-  // Per-capita exists only where a denominator does. Population statistics lag
-  // electricity statistics, so the newest year or two has none — those years
-  // leave the timeline in this view rather than being extrapolated.
+  // Per-capita exists only where a denominator does. Population now covers the
+  // full electricity span, but the last years are UN medium-variant
+  // PROJECTIONS rather than estimates, so those values are labelled apart.
   const populationYears = useMemo(
     () => new Set(manifest.population?.years ?? []),
     [manifest.population],
@@ -118,6 +118,9 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
   const perCapitaLastYear = manifest.population?.years.at(-1) ?? null
   const perCapitaSupportedForYear = populationYears.has(year)
   const perCapitaOffered = manifest.population !== null && populationYears.size > 0
+  const projectedFromYear = manifest.population?.projectedFromYear ?? null
+  const populationIsProjected =
+    basis === "per-capita" && projectedFromYear !== null && year >= projectedFromYear
 
   // --- static geometry + population ------------------------------------
   useEffect(() => {
@@ -317,13 +320,16 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
     dataset.energySource === null
       ? dataset.metricTitle
       : `${dataset.metricTitle} from ${dataset.title}`
-  // A per-capita figure is observed electricity divided by a reconstructed
-  // population estimate, so it inherits the weaker of the two.
+  // A per-capita figure is observed electricity divided by a population
+  // figure, so it inherits the weaker of the two — and a projected denominator
+  // is weaker still than an estimated one.
   // The year span is not repeated here: the slider prints its own endpoints
   // from the same array, two rows below.
   const evidenceLine =
     basis === "per-capita"
-      ? "Observed electricity ÷ reconstructed population"
+      ? populationIsProjected
+        ? "Observed electricity ÷ projected population"
+        : "Observed electricity ÷ reconstructed population"
       : "Observed data · by country"
   const announcement = `${datasetLabel}, ${basis === "per-capita" ? "per capita" : "total"}, ${year}${
     selectedName ? `, ${selectedName}` : ""
@@ -353,6 +359,8 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
         evidenceLine={evidenceLine}
         perCapitaAvailable={perCapitaOffered && perCapitaSupportedForYear}
         perCapitaLastYear={perCapitaOffered ? perCapitaLastYear : null}
+        populationIsProjected={populationIsProjected}
+        projectedFromYear={projectedFromYear}
         onSelectDataset={handleSelectDataset}
         onBasisChange={handleBasisChange}
         onYearChange={setYear}
@@ -390,6 +398,7 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
           basis={basis}
           scale={scale}
           availableYears={availableYears}
+          populationIsProjected={populationIsProjected}
           year={year}
           value={selectedValue}
           worldTotal={basis === "per-capita" ? null : (yearFile?.worldTotal ?? null)}

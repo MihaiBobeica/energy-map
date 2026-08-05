@@ -120,20 +120,23 @@ def raw_root(tmp_path):
     (raw / "owid/electricity-production-by-source.csv").write_text(
         BY_SOURCE_CSV, encoding="utf-8"
     )
-    # Population deliberately stops before the electricity data does, as the
-    # real UN WPP series does, so per-capita coverage is genuinely shorter.
-    (raw / "owid/population.csv").write_text(
-        "Entity,Code,Year,Population\n"
-        "United States,USA,1999,279000000\n"
-        "United States,USA,2000,282162411\n"
-        "United States,USA,2020,335942003\n"
-        "Netherlands,NLD,2020,17441139\n"
-        "Kosovo,OWID_KOS,2020,1790133\n"
-        "Africa,,2020,1360000000\n",
+    # UN estimates stop before the electricity data does; the projection column
+    # covers the remainder. The two must stay separable all the way through.
+    (raw / "owid/population-long-run-with-projections.csv").write_text(
+        "Entity,Code,Year,Population (projections) (Projected),Population\n"
+        "United States,USA,1999,,279000000\n"
+        "United States,USA,2000,,282162411\n"
+        "United States,USA,2019,,331000000\n"
+        "United States,USA,2020,335942003,\n"
+        "Netherlands,NLD,2020,17441139,\n"
+        "Kosovo,OWID_KOS,2020,1790133,\n"
+        "Africa,,2020,1360000000,\n",
         encoding="utf-8",
     )
     metadata = {"columns": {"x": {"lastUpdated": "2026-04-24"}}}
-    (raw / "owid/population.metadata.json").write_text(json.dumps(metadata))
+    (raw / "owid/population-long-run-with-projections.metadata.json").write_text(
+        json.dumps(metadata)
+    )
     (raw / "owid/electricity-generation.metadata.json").write_text(json.dumps(metadata))
     (raw / "owid/electricity-demand.metadata.json").write_text(json.dumps(metadata))
     (raw / "owid/electricity-production-by-source.metadata.json").write_text(
@@ -301,11 +304,15 @@ class TestExportStatic:
         manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
         assert manifest["population"]["path"] == "population.json"
         assert manifest["population"]["evidenceType"] == "reconstructed"
-        # 1999 is below the published span and must not leak in.
-        assert manifest["population"]["years"] == [2000, 2020]
+        # 1999 is below the published span and must not leak in; 2020 comes
+        # from the projection column, so the span reaches the electricity data.
+        assert manifest["population"]["years"] == [2000, 2019, 2020]
+        assert manifest["population"]["projectedFromYear"] == 2020
 
         population = json.loads((out / "population.json").read_text(encoding="utf-8"))
         assert population["values"]["USA"]["2000"] == 282162411
+        assert population["values"]["USA"]["2020"] == 335942003
+        assert population["projectedFromYear"] == 2020
         assert "1999" not in population["values"]["USA"]
         # Kosovo is coded OWID_KOS upstream; without the remap it would silently
         # lose its denominator and grey out only in per-capita mode.
@@ -317,6 +324,56 @@ class TestExportStatic:
         entry = next(s for s in sources["sources"] if s["id"] == "owid-population")
         assert "CC BY 3.0 IGO" in entry["licence"]
         assert any("denominator" in note for note in entry["notes"])
+        # The projection span must be disclosed in the published provenance.
+        assert any("MEDIUM-VARIANT PROJECTION" in note for note in entry["notes"])
+
+    def test_an_estimate_beats_a_projection_for_the_same_year(self, raw_root, tmp_path):
+        # Where both columns are populated the estimate must win: it is the
+        # stronger input, and the year stays classified as an estimate.
+        path = raw_root / "owid/population-long-run-with-projections.csv"
+        text = path.read_text(encoding="utf-8")
+        path.write_text(
+            text.replace(
+                "United States,USA,2019,,331000000",
+                "United States,USA,2019,331000001,331000000",
+            ),
+            encoding="utf-8",
+        )
+        out = tmp_path / "ok"
+        export_static(raw_root, out)
+        population = json.loads((out / "population.json").read_text(encoding="utf-8"))
+        assert population["values"]["USA"]["2019"] == 331000000
+        assert population["projectedFromYear"] == 2020
+
+    def test_a_projection_inside_the_estimate_span_fails_loudly(self, raw_root, tmp_path):
+        # Estimates and projections must split at a single clean boundary. If
+        # they interleave, "is this year an estimate?" has no answer and the
+        # UI could not label the value honestly — so refuse to publish.
+        path = raw_root / "owid/population-long-run-with-projections.csv"
+        text = path.read_text(encoding="utf-8")
+        path.write_text(
+            text.replace(
+                "United States,USA,2019,,331000000", "United States,USA,2019,331000001,"
+            )
+            .replace("United States,USA,2020,335942003,", "United States,USA,2020,,335942003")
+            .replace("Netherlands,NLD,2020,17441139,", "Netherlands,NLD,2020,,17441139")
+            .replace("Kosovo,OWID_KOS,2020,1790133,", "Kosovo,OWID_KOS,2020,,1790133"),
+            encoding="utf-8",
+        )
+        with pytest.raises(owid.SchemaDriftError, match="not a clean boundary"):
+            export_static(raw_root, tmp_path / "bad")
+
+    def test_a_year_that_is_both_estimate_and_projection_fails_loudly(self, raw_root, tmp_path):
+        path = raw_root / "owid/population-long-run-with-projections.csv"
+        text = path.read_text(encoding="utf-8")
+        # USA 2020 becomes an estimate while NLD 2020 stays a projection, so
+        # 2020 is simultaneously both across the dataset.
+        path.write_text(
+            text.replace("United States,USA,2020,335942003,", "United States,USA,2020,,335942003"),
+            encoding="utf-8",
+        )
+        with pytest.raises(owid.SchemaDriftError, match="both estimate and projection"):
+            export_static(raw_root, tmp_path / "bad")
 
     def test_source_sum_mismatch_fails_loudly(self, raw_root, tmp_path):
         # Halve every per-source value: the components no longer reconcile

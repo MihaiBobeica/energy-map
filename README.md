@@ -55,11 +55,14 @@ could be republished. See
 [docs/data-source-register.md](docs/data-source-register.md).
 
 Values can be shown as **totals (TWh) or per capita (kWh per person)**. Per
-capita is derived at render time from UN World Population Prospects estimates,
+capita is derived at render time from UN World Population Prospects figures,
 so it carries a weaker evidence label than the electricity data itself
-("observed electricity ÷ reconstructed population"). Population estimates stop
-in 2023 while electricity data runs to 2025, so the per-capita timeline is
-visibly shorter — those years are marked unavailable, never extrapolated.
+("observed electricity ÷ reconstructed population"). UN _estimates_ end in
+2023 while electricity data runs to 2025, so the last two years use the UN
+medium-variant _projection_ as their denominator — and say so, reading
+"÷ projected population" and marking the population figure. The pipeline
+records where that boundary falls and refuses to publish if estimates and
+projections ever interleave.
 
 **Three map states, deliberately distinct:** not reported (grey), reported
 zero (white) and bucketed positive values. Over half of all published source

@@ -47,7 +47,8 @@ const manifest = {
   // build, so the per-capita year domain is genuinely shorter.
   population: {
     path: "population.json",
-    years: [2000, 2024],
+    projectedFromYear: 2025,
+    years: [2000, 2024, 2025],
     sourceId: "owid-population",
     datasetVersion: "2024-07-15",
     evidenceType: "reconstructed",
@@ -189,8 +190,9 @@ function stubFetchRoutes() {
           evidenceType: "reconstructed",
           sourceId: "owid-population",
           unit: "people",
-          values: { USA: { "2000": 282000000, "2024": 342000000 } },
-          years: [2000, 2024],
+          projectedFromYear: 2025,
+          values: { USA: { "2000": 282000000, "2024": 342000000, "2025": 344000000 } },
+          years: [2000, 2024, 2025],
         })
       if (url.includes("country-series/")) return respond(countrySeries)
       return new Response("not found", { status: 404 })
@@ -326,22 +328,38 @@ describe("Atlas UI", () => {
     expect(within(legend).getByText("Zero")).toBeInTheDocument()
   })
 
-  it("shrinks the timeline to years that have a population denominator", async () => {
-    // 2025 has electricity data but no population, so it must leave the
-    // per-capita timeline rather than render as blank or be extrapolated.
+  it("covers every electricity year, including projection-backed ones", async () => {
     window.history.replaceState(null, "", "/?metric=electricity-generation&year=2025")
     stubFetchRoutes()
     render(<App />)
 
     expect(await screen.findByTestId("year-value")).toHaveTextContent("2025")
+    // 2025's denominator is a projection, but a projection is still a
+    // denominator: the option stays usable rather than being disabled.
     const perCapita = screen.getByRole("radio", { name: "Per capita" })
-    // Unavailable at 2025 — but offered with a stated reason, not hidden.
-    expect(perCapita).toBeDisabled()
-    expect(screen.getByText(/population estimates end in 2024/)).toBeInTheDocument()
+    expect(perCapita).toBeEnabled()
+    fireEvent.click(perCapita)
+    expect(await screen.findByTestId("year-value")).toHaveTextContent("2025")
+  })
 
-    fireEvent.click(screen.getByRole("button", { name: /Show 2024 per person/ }))
-    expect(await screen.findByTestId("year-value")).toHaveTextContent("2024")
-    expect(screen.getByRole("radio", { name: "Per capita" })).toBeChecked()
+  it("labels a projected denominator apart from an estimated one", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/?metric=electricity-generation&basis=per-capita&year=2025&country=USA",
+    )
+    stubFetchRoutes()
+    render(<App />)
+
+    expect(await screen.findByRole("heading", { name: "United States" })).toBeInTheDocument()
+    // Rail subtitle and panel badge must both say "projected", not
+    // "reconstructed" — the denominator is a UN projection for 2025.
+    expect(screen.getAllByText(/Observed electricity ÷ projected population/)).toHaveLength(2)
+    expect(screen.queryByText(/÷ reconstructed population/)).not.toBeInTheDocument()
+    // Said twice on purpose: beside the population figure in the panel, and
+    // in the rail where a reader who never opens a country still sees it.
+    expect(screen.getAllByText(/UN projection, not an estimate/)).toHaveLength(2)
+    expect(screen.getByText(/Population from 2025 is a UN projection/)).toBeInTheDocument()
   })
 
   it("labels a per-capita value as derived, not plainly observed", async () => {
@@ -354,7 +372,8 @@ describe("Atlas UI", () => {
     render(<App />)
 
     expect(await screen.findByRole("heading", { name: "United States" })).toBeInTheDocument()
-    // Stated in both the rail subtitle and the panel's evidence badge.
+    // 2024 is still an estimate in the fixture, so it keeps the reconstructed
+    // wording — the two cases must not collapse into one.
     expect(screen.getAllByText(/Observed electricity ÷ reconstructed population/)).toHaveLength(2)
     // 4200.25 TWh over 342,000,000 people ≈ 12,281 kWh each.
     expect(screen.getByText(/12,280/)).toBeInTheDocument()

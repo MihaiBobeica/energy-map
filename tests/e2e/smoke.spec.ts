@@ -15,19 +15,36 @@ test("atlas loads under /energy-map/ with controls, legend and default year", as
   await expect(page.getByLabel("Legend")).toContainText("TWh")
 })
 
-test("per capita is offered with a reason where no denominator exists", async ({ page }) => {
+test("per capita covers the full span, marking projection-backed years", async ({ page }) => {
   await page.goto("./")
-  // Default year 2024 has electricity data but no population estimate, so the
-  // option is disabled and says why — rather than silently blanking the map.
-  await expect(page.getByRole("radio", { name: "Per capita" })).toBeDisabled()
-  await expect(page.locator(".rail")).toContainText("population estimates end in 2023")
+  const perCapita = page.getByRole("radio", { name: "Per capita" })
+  await expect(perCapita).toBeEnabled()
+  await perCapita.check()
 
-  // The escape hatch switches basis and year together.
-  await page.getByRole("button", { name: /Show 2023 per person/ }).click()
   await expect(page).toHaveURL(/basis=per-capita/)
-  await expect(page.getByTestId("year-value")).toHaveText("2023")
   await expect(page.getByLabel("Legend")).toContainText("kWh per person")
+
+  // UN estimates end in 2023, so the default year 2024 is already backed by a
+  // medium-variant projection. The value is shown, but the rail must say the
+  // denominator is a different kind of number.
+  await expect(page.getByTestId("year-value")).toHaveText("2024")
+  await expect(page.locator(".rail")).toContainText("projected population")
+  await expect(page.locator(".rail")).toContainText("UN projection, not an estimate")
+
+  // Step back into the estimated span and the wording must change with it.
+  await page.getByRole("button", { name: "Previous year" }).click()
+  await expect(page.getByTestId("year-value")).toHaveText("2023")
   await expect(page.locator(".rail")).toContainText("reconstructed population")
+  await expect(page.locator(".rail")).not.toContainText("UN projection")
+})
+
+test("per capita reaches the final electricity year", async ({ page }) => {
+  await page.goto("./?metric=electricity-generation&basis=per-capita&year=2025&country=NOR")
+  await expect(page.getByRole("radio", { name: "Per capita" })).toBeChecked()
+  await expect(page.getByTestId("year-value")).toHaveText("2025")
+  // A real value, not a blank map: the projection supplies the denominator.
+  await expect(page.locator(".country-panel")).toContainText("kWh per person")
+  await expect(page.locator(".country-panel")).toContainText("UN projection, not an estimate")
 })
 
 test("per capita loads directly from a URL and rescales the map", async ({ page }) => {

@@ -272,10 +272,17 @@ follow from that and are enforced in code:
    never shows the plain "Observed" badge in this mode.
 2. **No denominator, no value.** Where population is missing the country is
    painted as not reported — never as zero, and never with a carried-forward
-   or projected population. Population statistics lag electricity statistics,
-   so the most recent years have no denominator at all: the per-capita
-   timeline is the intersection of the two, and it is visibly shorter.
-3. **Its own scale.** kWh per person and TWh differ by orders of magnitude, so
+   population.
+3. **A projected denominator is labelled as one.** UN population _estimates_
+   end in 2023 while electricity data runs to 2025. Rather than truncating
+   per-capita two years early, the UN medium-variant _projection_ supplies
+   the denominator for those years — and the UI says so, reading "Observed
+   electricity ÷ **projected** population" and marking the population figure
+   itself. The pipeline records `projectedFromYear` and refuses to publish if
+   estimates and projections overlap or interleave, because then no year
+   could be labelled truthfully. Where both exist for a year, the estimate
+   wins.
+4. **Its own scale.** kWh per person and TWh differ by orders of magnitude, so
    per-capita has its own fixed bucket thresholds. The legend always states
    the active unit, and switching basis repaints the map through the other
    scale rather than reusing thresholds that would flatten the map.

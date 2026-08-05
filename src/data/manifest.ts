@@ -53,6 +53,8 @@ export type PopulationInfo = {
   datasetVersion: string
   evidenceType: EvidenceType
   unit: string
+  /** From this year on the denominator is a projection, not an estimate. */
+  projectedFromYear: number | null
 }
 
 export type DataManifest = {
@@ -207,6 +209,14 @@ export function parseManifest(input: unknown): DataManifest {
       years.every((year) => Number.isInteger(year)) &&
       isEvidenceType(raw.evidenceType)
     ) {
+      const projectedFromYear = raw.projectedFromYear
+      if (
+        projectedFromYear !== undefined &&
+        projectedFromYear !== null &&
+        !Number.isInteger(projectedFromYear)
+      ) {
+        throw new ManifestError("population.projectedFromYear must be an integer or null")
+      }
       population = {
         path,
         years: years as number[],
@@ -214,6 +224,7 @@ export function parseManifest(input: unknown): DataManifest {
         datasetVersion: requireString(raw.datasetVersion, "population.datasetVersion"),
         evidenceType: raw.evidenceType,
         unit: requireString(raw.unit ?? "people", "population.unit"),
+        projectedFromYear: (projectedFromYear ?? null) as number | null,
       }
     } else {
       throw new ManifestError("population entry is present but malformed")

@@ -27,6 +27,7 @@ type CountryPanelProps = {
   basis: "total" | "per-capita"
   scale: ScaleDefinition
   availableYears: number[]
+  populationIsProjected: boolean
   year: number
   value: number | null
   worldTotal: number | null
@@ -44,6 +45,7 @@ export function CountryPanel({
   basis,
   scale,
   availableYears,
+  populationIsProjected,
   year,
   value,
   worldTotal,
@@ -123,7 +125,9 @@ export function CountryPanel({
         <p className="panel-evidence">
           {basis === "per-capita" ? (
             <span className="evidence-badge evidence-derived">
-              Observed electricity ÷ reconstructed population
+              {populationIsProjected
+                ? "Observed electricity ÷ projected population"
+                : "Observed electricity ÷ reconstructed population"}
             </span>
           ) : (
             <span className="evidence-badge evidence-observed">
@@ -137,7 +141,12 @@ export function CountryPanel({
         {basis === "per-capita" && population !== null && (
           <>
             <dt>Population</dt>
-            <dd>{population.toLocaleString("en-US")}</dd>
+            <dd>
+              {population.toLocaleString("en-US")}
+              {populationIsProjected && (
+                <span className="fact-qualifier"> · UN projection, not an estimate</span>
+              )}
+            </dd>
           </>
         )}
         {share !== null && (

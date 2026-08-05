@@ -94,9 +94,12 @@ pipeline; `—` means not yet retrieved.
 ### OWID-POP — Population (per-capita denominator)
 
 - **ID:** `owid-population`
-- **Page:** <https://ourworldindata.org/grapher/population>
-- **CSV:** <https://ourworldindata.org/grapher/population.csv?v=1&csvType=full&useColumnShortNames=false>
-- **Indicator:** 953903 ("Population (historical)"), lastUpdated 2024-07-15
+- **Page:** <https://ourworldindata.org/grapher/population-long-run-with-projections>
+- **CSV:** <https://ourworldindata.org/grapher/population-long-run-with-projections.csv?v=1&csvType=full&useColumnShortNames=false>
+- **Indicators:** 953903 ("Population (historical)" — estimates, through 2023)
+  and 953902 ("Population (projections)" — UN WPP 2024 **medium variant**,
+  2024 onward). They arrive as two separate CSV columns and are kept apart
+  throughout the pipeline.
 - **Licence status:** `verified`
 - **Licences (two instruments, verified 2026-08-05):**
   - Upstream data — **UN World Population Prospects 2024**, `CC BY 3.0 IGO`
@@ -119,14 +122,26 @@ pipeline; `—` means not yet retrieved.
 - **Use:** denominator for per-capita only; never displayed as a metric.
   A derived per-capita value inherits the weaker evidence type of its
   inputs — `reconstructed`, not `observed` — and the UI says so.
-- **Coverage gap:** no population estimates exist after 2023, while electricity
-  data runs to 2025. Per-capita is therefore **unavailable** for 2024–2025
-  rather than extrapolated, and the timeline shortens in that view.
+- **Estimates end in 2023; 2024–2025 are projections.** UN estimates stop at
+  the 2024 revision's 2023 base year, while electricity data runs to 2025. To
+  give per-capita the full span, the medium-variant projection supplies the
+  denominator for 2024–2025. This is a deliberate product decision, made
+  safe by keeping the two kinds separable:
+  - `population.json` and the manifest record `projectedFromYear`, so the
+    frontend knows exactly which years are projection-backed.
+  - The pipeline **refuses to publish** if the two columns overlap in a year,
+    or if a projection appears at or before the last estimate — either would
+    make "is this year an estimate?" unanswerable and the label dishonest.
+  - Where both columns hold a value, the estimate wins.
+  - The UI reads "Observed electricity ÷ **projected** population" for those
+    years instead of "reconstructed", and states the projection beside the
+    population figure. A projected denominator is never presented as an
+    estimated one.
 - **Rejected alternative:** the `population` column inside
-  `owid-energy-data.csv` reaches 2025, but it silently concatenates estimates
-  with UN WPP medium-variant **projections** (verified: 2024–2025 values are
-  byte-identical to the projection indicator). Using it would publish
-  projections as observed data.
+  `owid-energy-data.csv` also reaches 2025, but it silently concatenates
+  estimates with projections into one unflagged column (verified: 2024–2025
+  values are byte-identical to the projection indicator). The two-column
+  source is used precisely because it keeps the distinction machine-readable.
 - **Not credited:** HYDE and Gapminder are also listed as producers on this
   indicator, but contribute no value in the published 2000–2023 span (verified
   cell-by-cell against the pure UN WPP indicator), so they are not credited —
