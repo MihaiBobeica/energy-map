@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from energy_map_pipeline.adapters import natural_earth, owid
+from energy_map_pipeline.adapters import natural_earth, owid, population as population_adapter
 
 SCHEMA_VERSION = "1.0.0"
 PROCESSING_VERSION = "0.2.0"
@@ -238,6 +238,15 @@ def export_static(raw_root: Path, out_root: Path) -> int:
             owid.parse_owid_csv(spec, csv_cache[spec.raw_name], version_cache[spec.raw_name])
         )
 
+    # Population is the per-capita denominator only; it is never an energy
+    # metric and is published as its own series with its own licence.
+    population = population_adapter.parse_population_csv(
+        (raw_root / f"owid/{population_adapter.RAW_NAME}.csv").read_text(encoding="utf-8"),
+        owid.dataset_version_from_metadata(
+            raw_root / f"owid/{population_adapter.RAW_NAME}.metadata.json"
+        ),
+    )
+
     source_sum_report = _check_source_sums(datasets, iso3_to_country)
 
     # ---- join report ---------------------------------------------------
@@ -383,6 +392,26 @@ def export_static(raw_root: Path, out_root: Path) -> int:
             {"iso3": country.iso3, "name": country.name, "series": series},
         )
 
+    # ---- population (per-capita denominator) --------------------------
+    population_values = {
+        iso3: {str(year): value for year, value in sorted(by_year.items())}
+        for iso3, by_year in sorted(population.values.items())
+        if iso3 in iso3_to_country
+    }
+    _write_json(
+        out_root / "population.json",
+        {
+            "datasetVersion": population.dataset_version,
+            # UN WPP estimates are cohort-component reconstructions, restated
+            # by each revision — not annual observed headcounts.
+            "evidenceType": "reconstructed",
+            "sourceId": population_adapter.SOURCE_ID,
+            "unit": "people",
+            "values": population_values,
+            "years": [year for year in population.years],
+        },
+    )
+
     # ---- world series (for share-of-global) ---------------------------
     world_series = {
         dataset.spec.dataset_id: {
@@ -444,6 +473,34 @@ def export_static(raw_root: Path, out_root: Path) -> int:
                     "url": "https://ourworldindata.org/grapher/electricity-demand",
                 },
                 {
+                    "attribution": (
+                        "UN World Population Prospects 2024 (CC BY 3.0 IGO) "
+                        "via Our World in Data"
+                    ),
+                    "id": population_adapter.SOURCE_ID,
+                    "licence": "CC BY 3.0 IGO (UN WPP); CC BY 4.0 (OWID processing)",
+                    "licenceUrl": "http://creativecommons.org/licenses/by/3.0/igo/",
+                    "name": "Population (per-capita denominator)",
+                    "notes": [
+                        "Used only as the denominator for per-capita values; never shown as a "
+                        "metric in its own right.",
+                        "Published 2000-{last}. Within that span the series is UN World "
+                        "Population Prospects throughout; HYDE and Gapminder, which OWID also "
+                        "credits on this indicator, contribute no published value and are "
+                        "therefore not credited here.".format(last=population.years[-1]),
+                        "Evidence type is reconstructed: UN WPP estimates are cohort-component "
+                        "reconstructions restated by each revision, not annual observed counts. "
+                        "A per-capita value therefore inherits reconstructed, not observed.",
+                        "No population estimates exist after {last}, so per-capita is "
+                        "unavailable for later years rather than extrapolated.".format(
+                            last=population.years[-1]
+                        ),
+                    ],
+                    "publisher": "Our World in Data",
+                    "retrievedAt": retrieved_at,
+                    "url": "https://ourworldindata.org/grapher/population",
+                },
+                {
                     "attribution": "Natural Earth (public domain)",
                     "id": "natural-earth",
                     "licence": "Public domain",
@@ -487,6 +544,16 @@ def export_static(raw_root: Path, out_root: Path) -> int:
             "datasets": manifest_datasets,
             "generatedAt": retrieved_at,
             "geographyIndexPath": "geography-index.json",
+            # The frontend derives per-capita availability from these years,
+            # so no component ever hard-codes the population horizon.
+            "population": {
+                "datasetVersion": population.dataset_version,
+                "evidenceType": "reconstructed",
+                "path": "population.json",
+                "sourceId": population_adapter.SOURCE_ID,
+                "unit": "people",
+                "years": population.years,
+            },
             "schemaVersion": SCHEMA_VERSION,
             "worldSeriesPath": "world-series.json",
         },

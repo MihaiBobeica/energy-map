@@ -213,11 +213,54 @@ export function loadCountrySeries(
   return promise
 }
 
+export type PopulationData = {
+  /** iso3 -> year -> people. */
+  values: Map<string, Map<number, number>>
+  years: Set<number>
+  evidenceType: EvidenceType
+  sourceId: string
+}
+
+let populationPromise: Promise<PopulationData> | null = null
+
+export function loadPopulation(relativePath: string): Promise<PopulationData> {
+  populationPromise ??= fetchJson(relativePath).then((raw) => {
+    if (!isRecord(raw) || !isRecord(raw.values) || !Array.isArray(raw.years)) {
+      throw new DataFileError(`${relativePath}: invalid population file`)
+    }
+    const values = new Map<string, Map<number, number>>()
+    for (const [iso3, byYear] of Object.entries(raw.values)) {
+      if (!isRecord(byYear)) {
+        throw new DataFileError(`${relativePath}: invalid population entry for ${iso3}`)
+      }
+      const perYear = new Map<number, number>()
+      for (const [year, value] of Object.entries(byYear)) {
+        if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+          throw new DataFileError(`${relativePath}: invalid population for ${iso3} ${year}`)
+        }
+        perYear.set(Number(year), value)
+      }
+      values.set(iso3, perYear)
+    }
+    return {
+      values,
+      years: new Set(raw.years as number[]),
+      evidenceType: isEvidenceType(raw.evidenceType) ? raw.evidenceType : "reconstructed",
+      sourceId: typeof raw.sourceId === "string" ? raw.sourceId : "unknown",
+    }
+  })
+  populationPromise.catch(() => {
+    populationPromise = null
+  })
+  return populationPromise
+}
+
 /** Test hook: clears module-level caches between test cases. */
 export function resetDataCaches(): void {
   yearFileCache.clear()
   seriesCache.clear()
   geographyIndexPromise = null
   geojsonPromise = null
+  populationPromise = null
   dataVersion = null
 }

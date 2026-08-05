@@ -120,7 +120,20 @@ def raw_root(tmp_path):
     (raw / "owid/electricity-production-by-source.csv").write_text(
         BY_SOURCE_CSV, encoding="utf-8"
     )
+    # Population deliberately stops before the electricity data does, as the
+    # real UN WPP series does, so per-capita coverage is genuinely shorter.
+    (raw / "owid/population.csv").write_text(
+        "Entity,Code,Year,Population\n"
+        "United States,USA,1999,279000000\n"
+        "United States,USA,2000,282162411\n"
+        "United States,USA,2020,335942003\n"
+        "Netherlands,NLD,2020,17441139\n"
+        "Kosovo,OWID_KOS,2020,1790133\n"
+        "Africa,,2020,1360000000\n",
+        encoding="utf-8",
+    )
     metadata = {"columns": {"x": {"lastUpdated": "2026-04-24"}}}
+    (raw / "owid/population.metadata.json").write_text(json.dumps(metadata))
     (raw / "owid/electricity-generation.metadata.json").write_text(json.dumps(metadata))
     (raw / "owid/electricity-demand.metadata.json").write_text(json.dumps(metadata))
     (raw / "owid/electricity-production-by-source.metadata.json").write_text(
@@ -280,6 +293,30 @@ class TestExportStatic:
         path.write_text(text.replace(",130.72,", ",-130.72,", 1), encoding="utf-8")
         with pytest.raises(ValidationError, match="negative generation"):
             export_static(raw_root, tmp_path / "public-data")
+
+    def test_population_is_published_as_its_own_reconstructed_series(self, raw_root, tmp_path):
+        out = tmp_path / "public-data"
+        export_static(raw_root, out)
+
+        manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["population"]["path"] == "population.json"
+        assert manifest["population"]["evidenceType"] == "reconstructed"
+        # 1999 is below the published span and must not leak in.
+        assert manifest["population"]["years"] == [2000, 2020]
+
+        population = json.loads((out / "population.json").read_text(encoding="utf-8"))
+        assert population["values"]["USA"]["2000"] == 282162411
+        assert "1999" not in population["values"]["USA"]
+        # Kosovo is coded OWID_KOS upstream; without the remap it would silently
+        # lose its denominator and grey out only in per-capita mode.
+        assert population["values"]["KOS"]["2020"] == 1790133
+        # Aggregates are never treated as countries.
+        assert all(len(code) == 3 for code in population["values"])
+
+        sources = json.loads((out / "sources.json").read_text(encoding="utf-8"))
+        entry = next(s for s in sources["sources"] if s["id"] == "owid-population")
+        assert "CC BY 3.0 IGO" in entry["licence"]
+        assert any("denominator" in note for note in entry["notes"])
 
     def test_source_sum_mismatch_fails_loudly(self, raw_root, tmp_path):
         # Halve every per-source value: the components no longer reconcile

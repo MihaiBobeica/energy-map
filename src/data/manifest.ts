@@ -46,6 +46,15 @@ export function findDataset(
   )
 }
 
+export type PopulationInfo = {
+  path: string
+  years: number[]
+  sourceId: string
+  datasetVersion: string
+  evidenceType: EvidenceType
+  unit: string
+}
+
 export type DataManifest = {
   schemaVersion: string
   generatedAt: string
@@ -54,6 +63,8 @@ export type DataManifest = {
   geographyIndexPath: string | null
   countrySeriesPathTemplate: string | null
   worldSeriesPath: string | null
+  /** Denominator for per-capita; null when the build ships no population. */
+  population: PopulationInfo | null
 }
 
 export class ManifestError extends Error {
@@ -184,10 +195,36 @@ export function parseManifest(input: unknown): DataManifest {
     }
     seen.add(dataset.id)
   }
+  let population: PopulationInfo | null = null
+  if (isRecord(input.population)) {
+    const raw = input.population
+    const path = optionalPath(raw.path, "population.path")
+    const years = raw.years
+    if (
+      path !== null &&
+      Array.isArray(years) &&
+      years.length > 0 &&
+      years.every((year) => Number.isInteger(year)) &&
+      isEvidenceType(raw.evidenceType)
+    ) {
+      population = {
+        path,
+        years: years as number[],
+        sourceId: requireString(raw.sourceId, "population.sourceId"),
+        datasetVersion: requireString(raw.datasetVersion, "population.datasetVersion"),
+        evidenceType: raw.evidenceType,
+        unit: requireString(raw.unit ?? "people", "population.unit"),
+      }
+    } else {
+      throw new ManifestError("population entry is present but malformed")
+    }
+  }
+
   return {
     schemaVersion,
     generatedAt: input.generatedAt,
     datasets,
+    population,
     countriesGeojsonPath: optionalPath(input.countriesGeojsonPath, "countriesGeojsonPath"),
     geographyIndexPath: optionalPath(input.geographyIndexPath, "geographyIndexPath"),
     countrySeriesPathTemplate: optionalPath(

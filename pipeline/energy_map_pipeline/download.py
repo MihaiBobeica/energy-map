@@ -16,6 +16,11 @@ import requests
 
 from energy_map_pipeline.adapters.natural_earth import NE_50M_COUNTRIES_URL
 from energy_map_pipeline.adapters.owid import DATASETS
+from energy_map_pipeline.adapters.population import (
+    POPULATION_CSV_URL,
+    POPULATION_METADATA_URL,
+    RAW_NAME as POPULATION_RAW_NAME,
+)
 
 USER_AGENT = "energy-map-pipeline/0.1 (+https://github.com/MihaiBobeica/energy-map)"
 
@@ -30,6 +35,8 @@ def _owid_downloads() -> dict[str, str]:
 
 DOWNLOADS: dict[str, str] = {
     **_owid_downloads(),
+    f"owid/{POPULATION_RAW_NAME}.csv": POPULATION_CSV_URL,
+    f"owid/{POPULATION_RAW_NAME}.metadata.json": POPULATION_METADATA_URL,
     "natural-earth/ne_50m_admin_0_countries.geojson": NE_50M_COUNTRIES_URL,
 }
 
