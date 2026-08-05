@@ -426,6 +426,7 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
           value={selectedValue}
           worldTotal={basis === "per-capita" ? null : (yearFile?.worldTotal ?? null)}
           population={populationFor(selectedIso3)}
+          populationByYear={population?.values.get(selectedIso3) ?? null}
           series={series}
           onSelectSource={(energySource) => handleSelectDataset(dataset.metric, energySource)}
           onClose={() => setSelectedIso3(null)}

@@ -379,6 +379,27 @@ describe("Atlas UI", () => {
     expect(screen.getByText(/12,280/)).toBeInTheDocument()
   })
 
+  it("builds the per-capita history from each year's own population", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/?metric=electricity-generation&basis=per-capita&year=2024&country=USA",
+    )
+    stubFetchRoutes()
+    render(<App />)
+
+    expect(await screen.findByRole("heading", { name: "United States" })).toBeInTheDocument()
+    const chart = await screen.findByRole("img", { name: /History in kWh per person/ })
+    const label = chart.getAttribute("aria-label") ?? ""
+
+    // 4000 TWh over 282M people in 2000 = 14.2k kWh each;
+    // 4391 TWh over 342M in 2024 = 12.8k. Per capita FELL while the absolute
+    // total rose — the exact shape the old code destroyed by dividing every
+    // year by the selected year's population, which made it look like a rise.
+    expect(label).toContain("14.2k in 2000")
+    expect(label).toContain("12.8k in 2024")
+  })
+
   it("hides and restores the controls, keeping the current view legible", async () => {
     stubFetchRoutes()
     render(<App />)

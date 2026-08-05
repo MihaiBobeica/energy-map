@@ -31,6 +31,8 @@ type CountryPanelProps = {
   value: number | null
   worldTotal: number | null
   population: number | null
+  /** Population for every year, so the chart can divide year by year. */
+  populationByYear: ReadonlyMap<number, number> | null
   series: CountrySeries | null | "loading"
   onSelectSource: (energySource: string | null) => void
   onClose: () => void
@@ -48,6 +50,7 @@ export function CountryPanel({
   value,
   worldTotal,
   population,
+  populationByYear,
   series,
   onSelectSource,
   onClose,
@@ -58,15 +61,20 @@ export function CountryPanel({
   // The chart shows the selected series, plus its metric total as a muted
   // reference when a single source is selected. Plotting all eleven series
   // at once would be unreadable at this width.
-  // In per-capita mode the chart must follow the basis too, otherwise the
-  // headline reads kWh per person above a TWh history.
+  //
+  // Per capita divides EACH year by THAT year's population. Dividing every
+  // year by the selected year's population — which this used to do — is not a
+  // per-capita history at all: it is the absolute curve rescaled by one
+  // constant, so it hides exactly the effect per capita exists to show.
+  // A year with no denominator is dropped, never zeroed.
   const convert = (points: [number, number][]): [number, number][] => {
     if (basis !== "per-capita") return points
-    if (population === null) return []
-    return points.map(([pointYear, pointValue]) => {
-      const derived = perCapita(pointValue, population)
-      return [pointYear, derived ?? 0] as [number, number]
-    })
+    const converted: [number, number][] = []
+    for (const [pointYear, pointValue] of points) {
+      const derived = perCapita(pointValue, populationByYear?.get(pointYear) ?? null)
+      if (derived !== null) converted.push([pointYear, derived])
+    }
+    return converted
   }
 
   const chartSeries: ChartSeries[] = []
@@ -174,7 +182,7 @@ export function CountryPanel({
       {series === "loading" && <p className="panel-loading">Loading history…</p>}
       {chartSeries.length > 0 && (
         <div className="panel-chart">
-          <LineChart series={chartSeries} unit={scale.unit} />
+          <LineChart series={chartSeries} unit={scale.unit} markerYear={year} />
           {chartSeries.length > 1 && (
             <p className="panel-chart-caption">Blue: {dataset.title} · Grey: all sources</p>
           )}

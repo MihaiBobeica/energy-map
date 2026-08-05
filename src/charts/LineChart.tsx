@@ -7,20 +7,48 @@ export type ChartSeries = {
 
 const WIDTH = 320
 const HEIGHT = 160
-const PAD = { top: 8, right: 8, bottom: 20, left: 44 }
+const PAD = { top: 10, right: 8, bottom: 20, left: 44 }
 
+const EMPHASIZED_COLOR = "#1d6fa8"
+const MUTED_COLOR = "#9db4c4"
+
+/**
+ * Smallest "round" number at or above `value`.
+ *
+ * The steps are deliberately fine. With only 1/2/5/10, a country generating
+ * 561 TWh got an axis topping out at 1000, so its line sat in the lower half
+ * and a decade of variation looked like a flat line. 1.5/2.5/3/4/6/7.5 give a
+ * much tighter fit while still landing on numbers a reader can divide by.
+ */
 function niceMax(value: number): number {
-  if (value <= 0) return 1
+  if (!Number.isFinite(value) || value <= 0) return 1
   const magnitude = 10 ** Math.floor(Math.log10(value))
-  for (const factor of [1, 2, 5, 10]) {
+  for (const factor of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5, 10]) {
     if (value <= factor * magnitude) return factor * magnitude
   }
   return 10 * magnitude
 }
 
+function formatTick(value: number): string {
+  if (value >= 1000) {
+    const thousands = value / 1000
+    return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(1)}k`
+  }
+  return Number.isInteger(value) ? String(value) : value.toFixed(1)
+}
+
 /** Minimal dependency-free SVG line chart for country histories. */
-export function LineChart({ series, unit }: { series: ChartSeries[]; unit: string }) {
-  const allPoints = series.flatMap((entry) => entry.points)
+export function LineChart({
+  series,
+  unit,
+  markerYear,
+}: {
+  series: ChartSeries[]
+  unit: string
+  markerYear?: number
+}) {
+  const drawable = series.filter((entry) => entry.points.length > 0)
+  const allPoints = drawable.flatMap((entry) => entry.points)
   if (allPoints.length === 0) return null
 
   const years = allPoints.map(([year]) => year)
@@ -30,14 +58,30 @@ export function LineChart({ series, unit }: { series: ChartSeries[]; unit: strin
 
   const x = (year: number) =>
     maxYear === minYear
-      ? (PAD.left + WIDTH - PAD.right) / 2
+      ? PAD.left + (WIDTH - PAD.left - PAD.right) / 2
       : PAD.left + ((year - minYear) / (maxYear - minYear)) * (WIDTH - PAD.left - PAD.right)
   const y = (value: number) =>
     HEIGHT - PAD.bottom - (value / maxValue) * (HEIGHT - PAD.top - PAD.bottom)
 
   const yTicks = [0, maxValue / 2, maxValue]
-  const described = series
-    .map((entry) => `${entry.label}: ${entry.points.length} points, ${minYear}–${maxYear}`)
+  const emphasized = drawable.find((entry) => entry.emphasized) ?? drawable[0]
+  // Only mark the selected year when this series actually has a point there:
+  // a marker floating over a gap would imply a value that was never reported.
+  const markerPoint =
+    markerYear === undefined
+      ? undefined
+      : emphasized?.points.find(([pointYear]) => pointYear === markerYear)
+
+  const described = drawable
+    .map((entry) => {
+      const values = entry.points.map(([, value]) => value)
+      const first = entry.points[0]
+      const last = entry.points[entry.points.length - 1]
+      return (
+        `${entry.label}: ${formatTick(first![1])} in ${first![0]} to ` +
+        `${formatTick(last![1])} in ${last![0]}, peak ${formatTick(Math.max(...values))}`
+      )
+    })
     .join("; ")
 
   return (
@@ -45,7 +89,7 @@ export function LineChart({ series, unit }: { series: ChartSeries[]; unit: strin
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       className="line-chart"
       role="img"
-      aria-label={`Historical chart in ${unit}. ${described}`}
+      aria-label={`History in ${unit}. ${described}.`}
     >
       {yTicks.map((tick) => (
         <g key={tick}>
@@ -54,29 +98,66 @@ export function LineChart({ series, unit }: { series: ChartSeries[]; unit: strin
             x2={WIDTH - PAD.right}
             y1={y(tick)}
             y2={y(tick)}
-            stroke="#d3dce2"
+            stroke="#dfe6ec"
             strokeWidth={1}
           />
           <text x={PAD.left - 6} y={y(tick) + 3} textAnchor="end" className="chart-tick">
-            {tick >= 1000 ? `${tick / 1000}k` : tick}
+            {formatTick(tick)}
           </text>
         </g>
       ))}
+
+      {/* The year the map is showing, so the chart and the map agree. */}
+      {markerPoint && (
+        <line
+          x1={x(markerPoint[0])}
+          x2={x(markerPoint[0])}
+          y1={PAD.top}
+          y2={HEIGHT - PAD.bottom}
+          stroke="#c3d0da"
+          strokeWidth={1}
+          strokeDasharray="2 2"
+        />
+      )}
+
       <text x={PAD.left} y={HEIGHT - 4} className="chart-tick">
         {minYear}
       </text>
       <text x={WIDTH - PAD.right} y={HEIGHT - 4} textAnchor="end" className="chart-tick">
         {maxYear}
       </text>
-      {series.map((entry) => (
-        <polyline
-          key={entry.id}
-          fill="none"
-          stroke={entry.emphasized ? "#1d6fa8" : "#9db4c4"}
-          strokeWidth={entry.emphasized ? 2.2 : 1.4}
-          points={entry.points.map(([year, value]) => `${x(year)},${y(value)}`).join(" ")}
+
+      {drawable.map((entry) => {
+        const color = entry.emphasized ? EMPHASIZED_COLOR : MUTED_COLOR
+        // A polyline through one point draws nothing at all, which read as a
+        // country having no history rather than one year of it.
+        if (entry.points.length === 1) {
+          const [year, value] = entry.points[0]!
+          return <circle key={entry.id} cx={x(year)} cy={y(value)} r={2.6} fill={color} />
+        }
+        return (
+          <polyline
+            key={entry.id}
+            fill="none"
+            stroke={color}
+            strokeWidth={entry.emphasized ? 2 : 1.3}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            points={entry.points.map(([year, value]) => `${x(year)},${y(value)}`).join(" ")}
+          />
+        )
+      })}
+
+      {markerPoint && (
+        <circle
+          cx={x(markerPoint[0])}
+          cy={y(markerPoint[1])}
+          r={3.2}
+          fill="#fff"
+          stroke={EMPHASIZED_COLOR}
+          strokeWidth={2}
         />
-      ))}
+      )}
     </svg>
   )
 }
