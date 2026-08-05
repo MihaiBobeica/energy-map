@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Raw and intermediate data — never committed
+data/raw/
+data/interim/
+data/manual/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+pipeline/build/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+*.local
+
+# Logs
+*.log
+npm-debug.log*
