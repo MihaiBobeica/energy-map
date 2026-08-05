@@ -21,11 +21,18 @@ vi.mock("maplibre-gl", () => {
     getCanvas = vi.fn(() => ({ style: {} }))
   }
   class FakeControl {}
+  const setWorkerUrl = vi.fn()
   return {
     Map: FakeMap,
     NavigationControl: FakeControl,
     AttributionControl: FakeControl,
-    default: { Map: FakeMap, NavigationControl: FakeControl, AttributionControl: FakeControl },
+    setWorkerUrl,
+    default: {
+      Map: FakeMap,
+      NavigationControl: FakeControl,
+      AttributionControl: FakeControl,
+      setWorkerUrl,
+    },
   }
 })
 

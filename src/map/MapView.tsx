@@ -9,6 +9,7 @@ import {
 import { useEffect, useRef, useState } from "react"
 
 import { fillColorExpression, MISSING_COLOR } from "../utils/scale.ts"
+import { configureMaplibreWorker } from "./maplibreWorker.ts"
 import "maplibre-gl/dist/maplibre-gl.css"
 
 // Neutral self-hosted style: no external basemap, no tokens, no paid services.
@@ -73,6 +74,9 @@ export function MapView({
 
     let map: MaplibreMap | undefined
     try {
+      // Must run before the first Map is constructed: the worker pool reads the
+      // configured URL lazily, when it spawns the first worker.
+      configureMaplibreWorker()
       map = new MaplibreMap({
         container,
         style: NEUTRAL_STYLE,

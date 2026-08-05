@@ -86,7 +86,13 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
   const [geoIndex, setGeoIndex] = useState<GeographyIndex | null>(null)
   const [yearState, setYearState] = useState<YearState>({ key: "", file: null })
   const [seriesState, setSeriesState] = useState<SeriesState>({ key: "", data: null })
-  const [dataError, setDataError] = useState<string | null>(null)
+  // One slot per loader. A shared slot let a successful year load erase an
+  // unrelated geometry failure, leaving an empty map with no explanation.
+  const [errors, setErrors] = useState<{ geometry: string | null; year: string | null }>({
+    geometry: null,
+    year: null,
+  })
+  const dataError = errors.geometry ?? errors.year
 
   const yearKey = dataset ? `${dataset.path}/${year}` : ""
   // Stale-while-loading: keep painting the previous year until the new file
@@ -106,10 +112,12 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
         if (cancelled) return
         setGeojson(featureCollection)
         setGeoIndex(index)
+        setErrors((current) => ({ ...current, geometry: null }))
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setDataError(error instanceof Error ? error.message : String(error))
+          const message = error instanceof Error ? error.message : String(error)
+          setErrors((current) => ({ ...current, geometry: message }))
         }
       })
     return () => {
@@ -126,11 +134,12 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
       .then((file) => {
         if (cancelled) return
         setYearState({ key, file })
-        setDataError(null)
+        setErrors((current) => ({ ...current, year: null }))
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setDataError(error instanceof Error ? error.message : String(error))
+          const message = error instanceof Error ? error.message : String(error)
+          setErrors((current) => ({ ...current, year: message }))
         }
       })
     return () => {
