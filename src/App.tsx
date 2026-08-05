@@ -13,7 +13,7 @@ import {
   type GeographyIndex,
   type YearFile,
 } from "./data/loaders.ts"
-import type { DataManifest } from "./data/manifest.ts"
+import { findDataset, type DataManifest } from "./data/manifest.ts"
 import { useManifest } from "./hooks/useManifest.ts"
 import { MapView, type HoverInfo } from "./map/MapView.tsx"
 import { buildSearch, parseUrlState, resolveState } from "./state/urlState.ts"
@@ -71,15 +71,15 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
     [datasets],
   )
 
-  const [metricId, setMetricId] = useState(initial?.dataset.id ?? "")
+  const [datasetId, setDatasetId] = useState(initial?.dataset.id ?? "")
   const [year, setYear] = useState(initial?.year ?? 0)
   const [selectedIso3, setSelectedIso3] = useState<string | null>(initial?.country ?? null)
   const [playing, setPlaying] = useState(false)
   const [hover, setHover] = useState<HoverInfo | null>(null)
 
   const dataset = useMemo(
-    () => datasets.find((candidate) => candidate.id === metricId) ?? datasets[0] ?? null,
-    [datasets, metricId],
+    () => datasets.find((candidate) => candidate.id === datasetId) ?? datasets[0] ?? null,
+    [datasets, datasetId],
   )
 
   const [geojson, setGeojson] = useState<FeatureCollection | null>(null)
@@ -173,7 +173,12 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
   // --- URL sync --------------------------------------------------------
   useEffect(() => {
     if (!dataset) return
-    const search = buildSearch({ metric: dataset.id, year, country: selectedIso3 })
+    const search = buildSearch({
+      metric: dataset.metric,
+      source: dataset.energySource,
+      year,
+      country: selectedIso3,
+    })
     if (search !== window.location.search) {
       window.history.replaceState(null, "", `${window.location.pathname}${search}`)
     }
@@ -206,11 +211,14 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
     return map
   }, [yearFile, geoIndex])
 
-  const handleMetricChange = useCallback(
-    (nextMetricId: string) => {
-      const next = datasets.find((candidate) => candidate.id === nextMetricId)
+  const handleSelectDataset = useCallback(
+    (metric: string, energySource: string | null) => {
+      // Falling back to the metric total keeps the selector usable when a
+      // metric does not offer the currently-selected source.
+      const next =
+        findDataset(datasets, metric, energySource) ?? findDataset(datasets, metric, null)
       if (!next) return
-      setMetricId(next.id)
+      setDatasetId(next.id)
       setYear((current) => (next.years.includes(current) ? current : next.defaultYear))
     },
     [datasets],
@@ -230,7 +238,11 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
   const hoverValue = hover && yearFile ? (yearFile.values[hover.iso3] ?? null) : null
   const selectedName =
     selectedIso3 && geoIndex ? (geoIndex.byIso3.get(selectedIso3)?.name ?? selectedIso3) : null
-  const announcement = `${dataset.title}, ${year}${selectedName ? `, ${selectedName}` : ""}`
+  const datasetLabel =
+    dataset.energySource === null
+      ? dataset.metricTitle
+      : `${dataset.metricTitle} from ${dataset.title}`
+  const announcement = `${datasetLabel}, ${year}${selectedName ? `, ${selectedName}` : ""}`
 
   return (
     <div className="atlas">
@@ -249,7 +261,7 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
         year={year}
         playing={playing}
         loading={yearLoading}
-        onMetricChange={handleMetricChange}
+        onSelectDataset={handleSelectDataset}
         onYearChange={setYear}
         onTogglePlay={() => setPlaying((current) => !current)}
       />
@@ -270,7 +282,10 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
         >
           <strong>{hover.name}</strong>
           <br />
-          {dataset.title}, {year}: {formatValue(hoverValue, dataset.unit)}
+          {dataset.energySource === null
+            ? dataset.metricTitle
+            : `${dataset.metricTitle} — ${dataset.title}`}
+          , {year}: {formatValue(hoverValue, dataset.unit)}
           <br />
           <span className="tooltip-meta">
             {hoverValue === null ? "No reported value" : "Observed · Ember via OWID"} · country
@@ -289,6 +304,7 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
           value={yearFile ? (yearFile.values[selectedIso3] ?? null) : null}
           worldTotal={yearFile?.worldTotal ?? null}
           series={series}
+          onSelectSource={(energySource) => handleSelectDataset(dataset.metric, energySource)}
           onClose={() => setSelectedIso3(null)}
         />
       )}

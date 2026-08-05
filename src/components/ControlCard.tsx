@@ -1,4 +1,4 @@
-import type { ManifestDataset } from "../data/manifest.ts"
+import { datasetsForMetric, metricsOf, type ManifestDataset } from "../data/manifest.ts"
 
 const REPO_URL = "https://github.com/MihaiBobeica/energy-map"
 
@@ -8,7 +8,7 @@ type ControlCardProps = {
   year: number
   playing: boolean
   loading: boolean
-  onMetricChange: (metricId: string) => void
+  onSelectDataset: (metric: string, energySource: string | null) => void
   onYearChange: (year: number) => void
   onTogglePlay: () => void
 }
@@ -19,10 +19,15 @@ export function ControlCard({
   year,
   playing,
   loading,
-  onMetricChange,
+  onSelectDataset,
   onYearChange,
   onTogglePlay,
 }: ControlCardProps) {
+  const metrics = metricsOf(datasets)
+  const siblings = datasetsForMetric(datasets, dataset.metric)
+  // Only offer the source selector where the metric actually splits by source.
+  const hasSources = siblings.some((candidate) => candidate.energySource !== null)
+
   const yearIndex = dataset.years.indexOf(year)
   const lastIndex = dataset.years.length - 1
   const singleTimePoint = dataset.years.length <= 1
@@ -47,17 +52,36 @@ export function ControlCard({
       <label className="control-field">
         <span className="control-label">Metric</span>
         <select
-          value={dataset.id}
-          onChange={(event) => onMetricChange(event.target.value)}
+          value={dataset.metric}
+          onChange={(event) => onSelectDataset(event.target.value, null)}
           aria-label="Metric"
         >
-          {datasets.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>
-              {candidate.title} ({candidate.unit})
+          {metrics.map((metric) => (
+            <option key={metric.id} value={metric.id}>
+              {metric.title}
             </option>
           ))}
         </select>
       </label>
+
+      {hasSources && (
+        <label className="control-field">
+          <span className="control-label">Energy source</span>
+          <select
+            value={dataset.energySource ?? ""}
+            onChange={(event) =>
+              onSelectDataset(dataset.metric, event.target.value === "" ? null : event.target.value)
+            }
+            aria-label="Energy source"
+          >
+            {siblings.map((candidate) => (
+              <option key={candidate.id} value={candidate.energySource ?? ""}>
+                {candidate.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <div className="control-field">
         <span className="control-label">

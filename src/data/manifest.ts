@@ -2,8 +2,13 @@ import { isEvidenceType, type EvidenceType } from "../domain/evidence.ts"
 
 export type ManifestDataset = {
   id: string
+  /** Label for this dataset within its metric, e.g. "Coal" or "All sources". */
   title: string
   metric: string
+  /** Label for the metric group, e.g. "Electricity generation". */
+  metricTitle: string
+  /** null for a whole-system total; otherwise the generation source id. */
+  energySource: string | null
   sourceId: string
   datasetVersion: string
   evidenceTypes: EvidenceType[]
@@ -12,6 +17,33 @@ export type ManifestDataset = {
   unit: string
   defaultYear: number
   yearGeographyCounts: number[] | null
+}
+
+/** Distinct metrics in manifest order, for the metric selector. */
+export function metricsOf(datasets: ManifestDataset[]): { id: string; title: string }[] {
+  const seen = new Map<string, string>()
+  for (const dataset of datasets) {
+    if (!seen.has(dataset.metric)) seen.set(dataset.metric, dataset.metricTitle)
+  }
+  return [...seen].map(([id, title]) => ({ id, title }))
+}
+
+/** Datasets belonging to one metric, totals first, in manifest order. */
+export function datasetsForMetric(
+  datasets: ManifestDataset[],
+  metric: string,
+): ManifestDataset[] {
+  return datasets.filter((dataset) => dataset.metric === metric)
+}
+
+export function findDataset(
+  datasets: ManifestDataset[],
+  metric: string,
+  energySource: string | null,
+): ManifestDataset | undefined {
+  return datasets.find(
+    (dataset) => dataset.metric === metric && dataset.energySource === energySource,
+  )
 }
 
 export type DataManifest = {
@@ -58,7 +90,16 @@ function parseDataset(input: unknown, index: number): ManifestDataset {
   const id = requireString(input.id, `datasets[${index}].id`)
   const title = requireString(input.title, `dataset ${id}: title`)
   const metric = requireString(input.metric, `dataset ${id}: metric`)
+  const metricTitle = requireString(input.metricTitle ?? title, `dataset ${id}: metricTitle`)
   const sourceId = requireString(input.sourceId, `dataset ${id}: sourceId`)
+  if (
+    input.energySource !== undefined &&
+    input.energySource !== null &&
+    (typeof input.energySource !== "string" || !/^[a-z0-9-]+$/.test(input.energySource))
+  ) {
+    throw new ManifestError(`dataset ${id}: energySource must be a slug or null`)
+  }
+  const energySource = (input.energySource ?? null) as string | null
   const datasetVersion = requireString(input.datasetVersion, `dataset ${id}: datasetVersion`)
   const unit = requireString(input.unit ?? "TWh", `dataset ${id}: unit`)
 
@@ -111,6 +152,8 @@ function parseDataset(input: unknown, index: number): ManifestDataset {
     id,
     title,
     metric,
+    metricTitle,
+    energySource,
     sourceId,
     datasetVersion,
     evidenceTypes: evidenceTypes as EvidenceType[],

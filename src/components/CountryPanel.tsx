@@ -1,8 +1,9 @@
 import { LineChart, type ChartSeries } from "../charts/LineChart.tsx"
 import type { CountrySeries } from "../data/loaders.ts"
-import type { ManifestDataset } from "../data/manifest.ts"
+import { findDataset, type ManifestDataset } from "../data/manifest.ts"
 import { EVIDENCE_LABELS } from "../domain/evidence.ts"
 import { formatValue } from "../utils/format.ts"
+import { SourceMix } from "./SourceMix.tsx"
 
 type CountryPanelProps = {
   iso3: string
@@ -13,6 +14,7 @@ type CountryPanelProps = {
   value: number | null
   worldTotal: number | null
   series: CountrySeries | null | "loading"
+  onSelectSource: (energySource: string | null) => void
   onClose: () => void
 }
 
@@ -25,26 +27,44 @@ export function CountryPanel({
   value,
   worldTotal,
   series,
+  onSelectSource,
   onClose,
 }: CountryPanelProps) {
   const share =
     value !== null && worldTotal !== null && worldTotal > 0 ? (value / worldTotal) * 100 : null
 
-  const chartSeries: ChartSeries[] =
-    series && series !== "loading"
-      ? datasets
-          .map((candidate): ChartSeries | null => {
-            const entry = series.series[candidate.id]
-            if (!entry) return null
-            return {
-              id: candidate.id,
-              label: candidate.title,
-              points: entry.points,
-              emphasized: candidate.id === dataset.id,
-            }
-          })
-          .filter((entry): entry is ChartSeries => entry !== null)
-      : []
+  // The chart shows the selected series, plus its metric total as a muted
+  // reference when a single source is selected. Plotting all eleven series
+  // at once would be unreadable at this width.
+  const chartSeries: ChartSeries[] = []
+  if (series && series !== "loading") {
+    const selected = series.series[dataset.id]
+    if (selected) {
+      chartSeries.push({
+        id: dataset.id,
+        label: dataset.title,
+        points: selected.points,
+        emphasized: true,
+      })
+    }
+    if (dataset.energySource !== null) {
+      const total = findDataset(datasets, dataset.metric, null)
+      const totalEntry = total ? series.series[total.id] : undefined
+      if (total && totalEntry) {
+        chartSeries.push({
+          id: total.id,
+          label: `${total.metricTitle}, all sources`,
+          points: totalEntry.points,
+          emphasized: false,
+        })
+      }
+    }
+  }
+
+  const heading =
+    dataset.energySource === null
+      ? dataset.metricTitle
+      : `${dataset.metricTitle} — ${dataset.title}`
 
   return (
     <aside className="country-panel" aria-label={`Details for ${name}`}>
@@ -58,7 +78,7 @@ export function CountryPanel({
       <p className="panel-kind">Country · parent geography: World</p>
 
       <dl className="panel-facts">
-        <dt>{dataset.title}</dt>
+        <dt>{heading}</dt>
         <dd>
           <strong>{formatValue(value, dataset.unit)}</strong> in {year}
         </dd>
@@ -99,8 +119,19 @@ export function CountryPanel({
       {chartSeries.length > 0 && <LineChart series={chartSeries} unit={dataset.unit} />}
       {chartSeries.length > 1 && (
         <p className="panel-chart-caption">
-          Emphasized line: {dataset.title}. Muted: other available metrics.
+          Emphasized: {dataset.title}. Muted: all sources combined.
         </p>
+      )}
+
+      {series && series !== "loading" && (
+        <SourceMix
+          datasets={datasets}
+          metric={dataset.metric}
+          selectedDatasetId={dataset.id}
+          year={year}
+          series={series}
+          onSelectSource={onSelectSource}
+        />
       )}
     </aside>
   )
