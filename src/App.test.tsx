@@ -91,7 +91,8 @@ function stubFetchRoutes() {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input)
+      // Data-file URLs carry a cache-coherence query (?v=<generatedAt>).
+      const url = String(input).replace(/\?.*$/, "")
       const respond = (payload: unknown) => new Response(JSON.stringify(payload), { status: 200 })
       if (url.endsWith("manifest.json")) return respond(manifest)
       if (url.endsWith("countries.geojson")) return respond(geojson)

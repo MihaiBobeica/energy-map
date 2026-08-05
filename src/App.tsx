@@ -46,6 +46,18 @@ export default function App() {
       </div>
     )
   }
+  if (manifest.manifest.datasets.length === 0) {
+    // A deployed manifest always lists datasets; an empty one means a stale
+    // cached copy. Offer a revalidating retry instead of a dead end.
+    return (
+      <div className="app-message" role="alert">
+        <p>No datasets are listed in the data manifest — this is usually a stale cached copy.</p>
+        <button type="button" onClick={manifest.retry}>
+          Reload data
+        </button>
+      </div>
+    )
+  }
   return <Atlas manifest={manifest.manifest} />
 }
 

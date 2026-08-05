@@ -50,8 +50,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
+// Data files are fetched with a version query derived from the manifest's
+// generatedAt: the always-revalidated manifest then acts as the cache key
+// for everything below it, so cached year/series files can never be stale
+// relative to the manifest that referenced them.
+let dataVersion: string | null = null
+
+export function setDataVersion(version: string): void {
+  if (dataVersion !== version) {
+    dataVersion = version
+    yearFileCache.clear()
+    seriesCache.clear()
+  }
+}
+
+function dataUrl(relativePath: string): string {
+  const suffix = dataVersion ? `?v=${encodeURIComponent(dataVersion)}` : ""
+  return `${DATA_BASE_URL}${relativePath}${suffix}`
+}
+
 async function fetchJson(relativePath: string): Promise<unknown> {
-  const response = await fetch(`${DATA_BASE_URL}${relativePath}`)
+  const response = await fetch(dataUrl(relativePath))
   if (!response.ok) {
     throw new DataFileError(`${relativePath}: request failed with status ${response.status}`)
   }
@@ -156,7 +175,7 @@ export function loadCountrySeries(
   const relative = template.replace("{iso3}", iso3)
   const cached = seriesCache.get(relative)
   if (cached) return cached
-  const promise = fetch(`${DATA_BASE_URL}${relative}`).then(async (response) => {
+  const promise = fetch(dataUrl(relative)).then(async (response) => {
     if (response.status === 404) return null
     if (!response.ok) {
       throw new DataFileError(`${relative}: request failed with status ${response.status}`)
@@ -200,4 +219,5 @@ export function resetDataCaches(): void {
   seriesCache.clear()
   geographyIndexPromise = null
   geojsonPromise = null
+  dataVersion = null
 }

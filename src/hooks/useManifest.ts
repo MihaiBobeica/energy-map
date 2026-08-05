@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 
+import { setDataVersion } from "../data/loaders.ts"
 import { loadManifest, type DataManifest } from "../data/manifest.ts"
 
 type InternalState =
@@ -22,6 +23,9 @@ export function useManifest(): ManifestState {
     let cancelled = false
     loadManifest()
       .then((manifest) => {
+        // All data files below the manifest are fetched with this version so
+        // browser caches stay coherent with the manifest that listed them.
+        setDataVersion(manifest.generatedAt)
         if (!cancelled) setState({ status: "ready", manifest })
       })
       .catch((error: unknown) => {

@@ -159,7 +159,10 @@ export const DATA_BASE_URL = `${import.meta.env.BASE_URL}data/`
 export const MANIFEST_URL = `${DATA_BASE_URL}manifest.json`
 
 export async function loadManifest(url: string = MANIFEST_URL): Promise<DataManifest> {
-  const response = await fetch(url)
+  // The manifest is the mutable entry point to otherwise cacheable data:
+  // always revalidate it so a redeploy can't leave the app pinned to a stale
+  // dataset listing (GitHub Pages caches for ~10 minutes).
+  const response = await fetch(url, { cache: "no-cache" })
   if (!response.ok) {
     throw new ManifestError(`Manifest request failed with status ${response.status}`)
   }

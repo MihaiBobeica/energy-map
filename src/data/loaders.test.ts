@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { DataFileError, parseYearFile } from "./loaders.ts"
+import {
+  DataFileError,
+  loadYearFile,
+  parseYearFile,
+  resetDataCaches,
+  setDataVersion,
+} from "./loaders.ts"
 
 const valid = {
   metric: "electricity-generation",
@@ -12,6 +18,37 @@ const valid = {
   values: { USA: 4200.25, ZRV: 0 },
   worldTotal: 27000.5,
 }
+
+describe("cache-coherent data URLs", () => {
+  afterEach(() => {
+    resetDataCaches()
+    vi.unstubAllGlobals()
+  })
+
+  it("appends the manifest version to data-file requests", async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL) => new Response(JSON.stringify(valid), { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+    setDataVersion("2026-08-05T10:52:38Z")
+    await loadYearFile("years/electricity-generation", 2024)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = String(fetchMock.mock.calls[0]?.[0])
+    expect(url).toContain("years/electricity-generation/2024.json?v=2026-08-05T10%3A52%3A38Z")
+  })
+
+  it("a new manifest version invalidates previously cached files", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(valid), { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+    setDataVersion("v1")
+    await loadYearFile("years/electricity-generation", 2024)
+    await loadYearFile("years/electricity-generation", 2024)
+    expect(fetchMock).toHaveBeenCalledTimes(1) // cached within a version
+    setDataVersion("v2")
+    await loadYearFile("years/electricity-generation", 2024)
+    expect(fetchMock).toHaveBeenCalledTimes(2) // refetched under the new version
+  })
+})
 
 describe("parseYearFile", () => {
   it("accepts a valid year file, preserving zeros", () => {
