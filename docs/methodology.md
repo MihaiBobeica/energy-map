@@ -45,6 +45,15 @@ numeric assumption that every year exists. Default granularity by period:
 | 1992–2011   | Annual                                   | Generation, demand and DMSP-supported allocation          |
 | 2012–latest | Annual                                   | Modern electricity, VIIRS-supported allocation and plants |
 
+**Currently published span: 2000–2025.** Every metric shares one span so that
+switching metric or energy source never silently changes the timeline. The cut
+has two distinct causes, kept separate in the data and in
+[coverage-matrix.md](coverage-matrix.md): for generation and the by-source
+split it is a **licence** limit (the pre-2000 span is Energy Institute data,
+whose terms forbid redistribution); for demand it is a **product scope**
+decision (1990–1999 is fully CC BY 4.0 and could be republished). Earlier
+periods return when the historical modes in the table above are implemented.
+
 Mode availability by period:
 
 - **1700 onward:** historical population, land use, settlement and activity
@@ -224,6 +233,42 @@ non-negative where logically required; population positive where provided;
 zero stays zero; missing stays null; aggregate entities never treated as
 countries; energy-source components checked against totals; net imports
 follow the single documented sign convention.
+
+### Energy-source components vs totals — what the check proves
+
+The nine generation-by-source series are reconciled against the separately
+published total for every country-year, with a tight tolerance (0.005 TWh —
+values carry at most two decimals). Measured over the published span, all
+5,292 country-years reconcile exactly.
+
+**This proves arithmetic consistency, not completeness.** OWID's published
+total is itself derived as the sum of the nine sources, treating an
+unreported source as zero. Two consequences are load-bearing:
+
+1. The check is a schema-drift tripwire — it fires if a column binds to the
+   wrong series, a tenth source appears, or units change — but it can never
+   reveal that a source was never reported.
+2. Where a source is unreported, **the published total understates actual
+   generation**. This is not rare: 612 country-years lack "other renewables"
+   and 22 countries never report it at all, including several of the largest
+   generators.
+
+Completeness is therefore tracked separately by a missing-cell census
+(`coverage.json` → `sourceCompleteness`, and `join-report.json`), which
+records per-source unreported counts, reported-zero counts, countries that
+never report a source, and how many country-years above 100 TWh have a gap.
+The country panel states explicitly when a country's mix is incomplete, so a
+share of "100%" is never read as "all electricity generated".
+
+### Reported zero vs unreported
+
+Just over half of all published source cells are exactly zero, so the
+distinction carries most of the dataset's signal. Both directions are errors:
+collapsing unreported to zero fabricates data, and hiding zero loses the
+strongest true statement in the data ("this country generates no nuclear at
+all"). The map therefore paints three visually distinct states — not
+reported, zero, and bucketed positive values — and the panel writes
+"not reported" rather than a number.
 
 **Geographies:** feature IDs unique; parent IDs exist; geometry valid; ISO
 codes follow ISO 3166-1 alpha-3; geometry-source version recorded; join

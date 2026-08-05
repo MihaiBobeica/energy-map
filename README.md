@@ -37,19 +37,31 @@ electricity itself.
 
 ## Status
 
-Phase 2 — country electricity vertical slice is live. The deployed site
-shows observed country-level electricity **generation (2000–2025)** and
-**demand (1990–2025)** as a choropleth over Natural Earth boundaries, with a
-timeline (play/prev/next), hover tooltips carrying evidence and source
-metadata, a country panel with the historical line chart and share of the
-world total, and shareable URL state (`?metric=…&year=…&country=…`).
+Phase 2 — country electricity vertical slice is live, covering **2000–2025**.
+The deployed site shows observed country-level electricity **generation**
+(total and split across nine sources: coal, gas, oil, nuclear, hydropower,
+wind, solar, bioenergy, other renewables) and **demand**, as a choropleth over
+Natural Earth boundaries, with a timeline (play/prev/next), hover tooltips
+carrying evidence and source metadata, a country panel with the historical
+line chart, share of the world total and the country's full generation mix,
+and shareable URL state (`?metric=…&source=…&year=…&country=…`).
 
-Generation is published from 2000 — not 1985 as in the source — because
-pre-2000 values derive from the Energy Institute, whose redistribution terms
-are not verified; the Ember-covered span is CC BY 4.0. See
-[docs/data-source-register.md](docs/data-source-register.md). The default
-year is the latest _broadly covered_ year; partial early-release years stay
-on the timeline and are labelled with a coverage note.
+**Why 2000?** Every metric shares one span, for two distinct reasons the
+pipeline keeps separate. Generation and the by-source split are licence-gated:
+their pre-2000 data comes from the Energy Institute, whose terms expressly
+forbid redistribution, while the Ember-covered span from 2000 is CC BY 4.0.
+Demand is cut by product scope only — its 1990–1999 data is fully licensed and
+could be republished. See
+[docs/data-source-register.md](docs/data-source-register.md).
+
+**Three map states, deliberately distinct:** not reported (grey), reported
+zero (white) and bucketed positive values. Over half of all published source
+cells are exactly zero, so conflating "generates none" with "never reported"
+would misrepresent the data. Where a country did not report every source, the
+panel says so — its published total understates real generation.
+
+The default year is the latest _broadly covered_ year; partial early-release
+years stay on the timeline and are labelled with a coverage note.
 
 See [docs/requirements.md](docs/requirements.md) for the full phase plan.
 

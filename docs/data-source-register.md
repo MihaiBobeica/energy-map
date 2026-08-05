@@ -50,13 +50,30 @@ pipeline; `—` means not yet retrieved.
   `api.ourworldindata.org/v1/indicators/1228028.metadata.json`):** Ember data
   (2000 onward; 1990 onward for Europe) is CC BY 4.0
   (<https://ember-energy.org/creative-commons/>). Pre-2000 values derive from
-  the Energy Institute Statistical Review ("© Energy Institute", terms page
-  not retrievable for verification) — **treated as `restricted` and excluded
-  from published output**. The CSV has no row-level provenance, so the
-  conservative global cut is year ≥ 2000.
+  the Energy Institute Statistical Review — see the EI entry below;
+  **`excluded` from published output**. The CSV has no row-level provenance,
+  so the conservative global cut is year ≥ 2000.
 - **Retrieved:** 2026-08-05 (dataset version 2026-04-24)
 - **Temporal coverage:** source 1985–2025; **published 2000–2025**
 - **Evidence classification:** `observed`
+
+### EI — Energy Institute Statistical Review of World Energy
+
+- **ID:** `energy-institute`
+- **Terms:** <https://www.energyinst.org/terms>
+- **Licence status:** `excluded`
+- **Verification (2026-08-05):** the terms page returns HTTP 403 to a default
+  user agent but HTTP 200 with ordinary browser headers, so it **was** read.
+  Its copyright clause reserves all rights, permits copies only for
+  information purposes and users' private use, grants no licence beyond
+  viewing on the site, and states that any other use or reproduction is
+  expressly forbidden without the EI's written permission.
+- **Consequence:** this is an **affirmative prohibition on redistribution**,
+  not merely an unverifiable licence. No EI-derived value may be published.
+  Every OWID electricity series that blends EI data is therefore cut at the
+  first fully-Ember year (2000). The EI is deliberately **not** credited in
+  the application, because crediting a source we do not publish would
+  misstate provenance.
 
 ### OWID-DEM — Electricity demand (grapher)
 
@@ -68,15 +85,58 @@ pipeline; `—` means not yet retrieved.
   (<https://ember-energy.org/creative-commons/>), confirmed 2026-08-05 via
   indicator metadata `api.ourworldindata.org/v1/indicators/1228025.metadata.json`
 - **Retrieved:** 2026-08-05 (dataset version 2026-04-24)
-- **Temporal coverage:** 1990–2025 (published in full)
+- **Temporal coverage:** source 1990–2025; **published 2000–2025**
+- **Publication cut:** 2000 is a **product scope** decision (one shared span
+  across all metrics), not a licence restriction — 1990–1999 is fully
+  CC BY 4.0 and could be published if the product scope changed.
 - **Evidence classification:** `observed`
 
 ### OWID-MIX — Electricity production by source
 
 - **ID:** `owid-electricity-by-source`
 - **Page:** <https://ourworldindata.org/grapher/electricity-production-by-source>
-- **Licence status:** `pending`
+- **CSV:** <https://ourworldindata.org/grapher/electricity-production-by-source.csv?v=1&csvType=full&useColumnShortNames=false>
+- **Metadata:** <https://ourworldindata.org/grapher/electricity-production-by-source.metadata.json?v=1&csvType=full&useColumnShortNames=false>
+- **Licence status:** `verified` **for the Ember-covered span (year ≥ 2000) only**
+- **Retrieved:** 2026-08-05 (dataset version 2026-04-24)
+- **Temporal coverage:** source 1965–2025; **published 2000–2025**
+- **Columns published:** Coal, Gas, Oil, Nuclear, Hydropower, Wind, Solar,
+  Bioenergy, Other renewables — all in TWh.
 - **Evidence classification:** `observed`
+
+#### Per-column licence verification (2026-08-05)
+
+Each column's indicator was fetched individually from
+`https://api.ourworldindata.org/v1/indicators/<id>.metadata.json` and its
+`origins[].license` read directly. Names and URLs are reproduced as published.
+
+| Column             | Indicator | Producers                  | Licence(s)                                                                           |
+| ------------------ | --------- | -------------------------- | ------------------------------------------------------------------------------------ |
+| `Coal`             | 1227968   | Ember ×2, Energy Institute | `CC BY 4.0` <https://ember-energy.org/creative-commons/> · `© Energy Institute 2025` |
+| `Gas`              | 1227972   | Ember ×2, Energy Institute | as above                                                                             |
+| `Nuclear`          | 1227995   | Ember ×2, Energy Institute | as above                                                                             |
+| `Hydropower`       | 1227989   | Ember ×2, Energy Institute | as above                                                                             |
+| `Solar`            | 1228023   | Ember ×2, Energy Institute | as above                                                                             |
+| `Oil`              | 1227996   | Ember ×2, Energy Institute | as above                                                                             |
+| `Wind`             | 1228030   | Ember ×2, Energy Institute | as above                                                                             |
+| `Bioenergy`        | 1227964   | Ember ×2 **only**          | `CC BY 4.0` <https://ember-energy.org/creative-commons/>                             |
+| `Other renewables` | 1227999   | Ember ×2 **only**          | `CC BY 4.0` <https://ember-energy.org/creative-commons/>                             |
+
+All nine carry `nonRedistributable: false` and `processingLevel: "major"`.
+
+`Bioenergy` and `Other renewables` are Ember-only and would be publishable
+from 1990. The 2000 cut is forced by the other seven, where 1990–1999 mixes
+Ember (Europe plus Turkey) with the excluded Energy Institute and the CSV
+carries no per-cell provenance. One uniform 2000–2025 span is therefore both
+licence-safe for all nine and consistent with the product-wide scope.
+
+**Residual risk:** the claim that year ≥ 2000 is entirely Ember rests on
+OWID's own processing note; there is no per-cell provenance field to verify
+it independently. Re-run this verification whenever the dataset version
+changes (currently 2026-04-24).
+
+**Ember logo:** Ember's CC BY grant excludes its logo. The application credits
+Ember by name only and must never render an Ember logo.
 
 ### EMBER-API — Ember yearly/monthly electricity API
 
