@@ -164,3 +164,26 @@ test("controls can be hidden for a clean map and brought back", async ({ page })
   await restore.click()
   await expect(page.getByRole("combobox", { name: "Metric" })).toBeVisible()
 })
+
+// A short, narrow window put both sheets at 88% of the height. They stack in
+// one column, so the country panel covered the map AND buried the rail beneath
+// it — the map, which is the product, was not visible at all.
+for (const viewport of [
+  { width: 640, height: 400 },
+  { width: 560, height: 360 },
+]) {
+  test(`the map stays visible between the sheets at ${viewport.width}x${viewport.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport)
+    await page.goto("./?metric=electricity-generation&year=2024&country=USA")
+    await expect(page.locator(".country-panel")).toBeVisible()
+
+    const rail = await page.locator(".rail").boundingBox()
+    const panel = await page.locator(".country-panel").boundingBox()
+    expect(rail).not.toBeNull()
+    expect(panel).not.toBeNull()
+    // A real band of map between them, not a negative one.
+    expect(panel!.y).toBeGreaterThan(rail!.y + rail!.height)
+  })
+}

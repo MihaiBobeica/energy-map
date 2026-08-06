@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react"
+import type { CSSProperties, RefObject } from "react"
 
 import { datasetsForMetric, metricsOf, type ManifestDataset } from "../data/manifest.ts"
 import type { ScaleDefinition } from "../utils/scale.ts"
@@ -62,6 +62,8 @@ type ControlRailProps = {
   onYearChange: (year: number) => void
   onTogglePlay: () => void
   onHide: () => void
+  /** So focus can land back here when the rail is restored. */
+  hideButtonRef?: RefObject<HTMLButtonElement | null>
 }
 
 /**
@@ -87,6 +89,7 @@ export function ControlRail({
   onYearChange,
   onTogglePlay,
   onHide,
+  hideButtonRef,
 }: ControlRailProps) {
   const metrics = metricsOf(datasets)
   const siblings = datasetsForMetric(datasets, dataset.metric)
@@ -120,6 +123,7 @@ export function ControlRail({
         <button
           type="button"
           className="icon-button"
+          ref={hideButtonRef}
           onClick={onHide}
           aria-label="Hide controls"
           aria-expanded={true}

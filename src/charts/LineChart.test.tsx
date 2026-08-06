@@ -40,6 +40,26 @@ describe("LineChart", () => {
     expect(ticks).not.toContain("1k")
   })
 
+  it("labels the middle gridline with the value it is actually drawn at", () => {
+    // A 2.5 axis maximum halves to 1.25. Rounding the label to "1.3" put a
+    // number on a line that is not at that number.
+    const svg = chart({
+      series: series([
+        [2000, 2.4],
+        [2024, 2.5],
+      ]),
+      unit: "TWh",
+    })
+    const ticks = [...svg.querySelectorAll("text")].map((node) => node.textContent)
+    expect(ticks).toContain("1.25")
+    expect(ticks).not.toContain("1.3")
+  })
+
+  it("does not round a small value down to a reported zero", () => {
+    const svg = chart({ series: series([[2024, 0.04]]), unit: "TWh" })
+    expect(svg.getAttribute("aria-label")).toContain("0.04 in 2024")
+  })
+
   it("marks the selected year only where the series actually has a value", () => {
     const points: [number, number][] = [
       [2000, 10],

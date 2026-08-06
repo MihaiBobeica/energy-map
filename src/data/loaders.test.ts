@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import {
   DataFileError,
+  loadCountriesGeojson,
   loadYearFile,
   parseYearFile,
   resetDataCaches,
@@ -47,6 +48,28 @@ describe("cache-coherent data URLs", () => {
     setDataVersion("v2")
     await loadYearFile("years/electricity-generation", 2024)
     expect(fetchMock).toHaveBeenCalledTimes(2) // refetched under the new version
+  })
+
+  it("never caches a failed geometry fetch", async () => {
+    // The geometry is fetched once per session. Caching the REJECTION left the
+    // map blank for the whole session after one transient failure: every retry
+    // re-read the cached error without issuing a request.
+    const geojson = { type: "FeatureCollection", features: [] }
+    const fetchMock = vi
+      .fn<() => Promise<Response>>()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValue(new Response(JSON.stringify(geojson), { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    await expect(loadCountriesGeojson("geographies/countries.geojson")).rejects.toThrow()
+    await expect(loadCountriesGeojson("geographies/countries.geojson")).resolves.toMatchObject({
+      type: "FeatureCollection",
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    // A success, by contrast, is still cached: one geometry download a session.
+    await loadCountriesGeojson("geographies/countries.geojson")
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })
 

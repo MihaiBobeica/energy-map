@@ -3,7 +3,7 @@ import type { CountrySeries } from "../data/loaders.ts"
 import { findDataset, type ManifestDataset } from "../data/manifest.ts"
 import { EVIDENCE_LABELS } from "../domain/evidence.ts"
 import { perCapita } from "../domain/perCapita.ts"
-import { formatValue } from "../utils/format.ts"
+import { formatShare, formatValue } from "../utils/format.ts"
 import type { ScaleDefinition } from "../utils/scale.ts"
 import { SourceMix } from "./SourceMix.tsx"
 
@@ -157,7 +157,7 @@ export function CountryPanel({
         {share !== null && (
           <>
             <dt>World share</dt>
-            <dd>{share < 0.1 ? "< 0.1" : share.toFixed(1)}%</dd>
+            <dd>{formatShare(share)}</dd>
           </>
         )}
         <dt>Coverage</dt>

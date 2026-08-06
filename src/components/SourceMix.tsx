@@ -1,6 +1,6 @@
 import type { CountrySeries } from "../data/loaders.ts"
 import { datasetsForMetric, type ManifestDataset } from "../data/manifest.ts"
-import { formatValue } from "../utils/format.ts"
+import { formatShare, formatValue } from "../utils/format.ts"
 
 type SourceMixProps = {
   datasets: ManifestDataset[]
@@ -87,7 +87,7 @@ export function SourceMix({
                     <>
                       {formatValue(value, unit)}
                       {share !== null && (
-                        <span className="source-share"> · {share.toFixed(1)}%</span>
+                        <span className="source-share"> · {formatShare(share)}</span>
                       )}
                     </>
                   )}

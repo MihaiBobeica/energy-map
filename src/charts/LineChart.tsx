@@ -29,12 +29,16 @@ function niceMax(value: number): number {
   return 10 * magnitude
 }
 
+/**
+ * Three significant digits, not one decimal place. Half of a 2.5-style axis
+ * maximum is 1.25, and `toFixed(1)` printed "1.3" against a gridline actually
+ * drawn at 1.25 — a label that contradicts its own line. The same rounding
+ * flattened small values to "0.0", which reads as a reported zero.
+ */
+const tickFormat = new Intl.NumberFormat("en-US", { maximumSignificantDigits: 3 })
+
 function formatTick(value: number): string {
-  if (value >= 1000) {
-    const thousands = value / 1000
-    return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(1)}k`
-  }
-  return Number.isInteger(value) ? String(value) : value.toFixed(1)
+  return value >= 1000 ? `${tickFormat.format(value / 1000)}k` : tickFormat.format(value)
 }
 
 /** Minimal dependency-free SVG line chart for country histories. */

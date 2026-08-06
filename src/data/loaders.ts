@@ -61,6 +61,7 @@ export function setDataVersion(version: string): void {
     dataVersion = version
     yearFileCache.clear()
     seriesCache.clear()
+    singletonCache.clear()
   }
 }
 
@@ -75,6 +76,27 @@ async function fetchJson(relativePath: string): Promise<unknown> {
     throw new DataFileError(`${relativePath}: request failed with status ${response.status}`)
   }
   return response.json()
+}
+
+/**
+ * Files fetched once per session: geometry, the geography index, population.
+ *
+ * A REJECTED promise is never kept. Caching one meant a single transient
+ * failure on countries.geojson left the map blank for the whole session with
+ * no way back short of a page reload — the retry re-read the cached rejection
+ * and failed instantly, without a request.
+ */
+const singletonCache = new Map<string, Promise<unknown>>()
+
+function loadOnce<T>(key: string, create: () => Promise<T>): Promise<T> {
+  const cached = singletonCache.get(key) as Promise<T> | undefined
+  if (cached) return cached
+  const promise = create()
+  singletonCache.set(key, promise)
+  promise.catch(() => {
+    if (singletonCache.get(key) === promise) singletonCache.delete(key)
+  })
+  return promise
 }
 
 const yearFileCache = new Map<string, Promise<YearFile>>()
@@ -123,45 +145,43 @@ export function parseYearFile(raw: unknown, label: string): YearFile {
   }
 }
 
-let geographyIndexPromise: Promise<GeographyIndex> | null = null
-
 export function loadGeographyIndex(relativePath: string): Promise<GeographyIndex> {
-  geographyIndexPromise ??= fetchJson(relativePath).then((raw) => {
-    if (!isRecord(raw) || !Array.isArray(raw.countries)) {
-      throw new DataFileError(`${relativePath}: invalid geography index`)
-    }
-    const countries: GeographyIndexEntry[] = raw.countries.map((entry) => {
-      if (
-        !isRecord(entry) ||
-        !Number.isInteger(entry.id) ||
-        typeof entry.iso3 !== "string" ||
-        typeof entry.name !== "string"
-      ) {
-        throw new DataFileError(`${relativePath}: invalid country entry`)
+  return loadOnce(`geography-index:${relativePath}`, () =>
+    fetchJson(relativePath).then((raw) => {
+      if (!isRecord(raw) || !Array.isArray(raw.countries)) {
+        throw new DataFileError(`${relativePath}: invalid geography index`)
       }
-      return { id: entry.id as number, iso3: entry.iso3, name: entry.name }
-    })
-    return {
-      geometrySource: typeof raw.geometrySource === "string" ? raw.geometrySource : "unknown",
-      geometryVersion: typeof raw.geometryVersion === "string" ? raw.geometryVersion : "unknown",
-      countries,
-      byIso3: new Map(countries.map((c) => [c.iso3, c])),
-      byId: new Map(countries.map((c) => [c.id, c])),
-    }
-  })
-  return geographyIndexPromise
+      const countries: GeographyIndexEntry[] = raw.countries.map((entry) => {
+        if (
+          !isRecord(entry) ||
+          !Number.isInteger(entry.id) ||
+          typeof entry.iso3 !== "string" ||
+          typeof entry.name !== "string"
+        ) {
+          throw new DataFileError(`${relativePath}: invalid country entry`)
+        }
+        return { id: entry.id as number, iso3: entry.iso3, name: entry.name }
+      })
+      return {
+        geometrySource: typeof raw.geometrySource === "string" ? raw.geometrySource : "unknown",
+        geometryVersion: typeof raw.geometryVersion === "string" ? raw.geometryVersion : "unknown",
+        countries,
+        byIso3: new Map(countries.map((c) => [c.iso3, c])),
+        byId: new Map(countries.map((c) => [c.id, c])),
+      }
+    }),
+  )
 }
 
-let geojsonPromise: Promise<FeatureCollection> | null = null
-
 export function loadCountriesGeojson(relativePath: string): Promise<FeatureCollection> {
-  geojsonPromise ??= fetchJson(relativePath).then((raw) => {
-    if (!isRecord(raw) || raw.type !== "FeatureCollection" || !Array.isArray(raw.features)) {
-      throw new DataFileError(`${relativePath}: not a FeatureCollection`)
-    }
-    return raw as unknown as FeatureCollection
-  })
-  return geojsonPromise
+  return loadOnce(`geojson:${relativePath}`, () =>
+    fetchJson(relativePath).then((raw) => {
+      if (!isRecord(raw) || raw.type !== "FeatureCollection" || !Array.isArray(raw.features)) {
+        throw new DataFileError(`${relativePath}: not a FeatureCollection`)
+      }
+      return raw as unknown as FeatureCollection
+    }),
+  )
 }
 
 const seriesCache = new Map<string, Promise<CountrySeries | null>>()
@@ -221,46 +241,40 @@ export type PopulationData = {
   sourceId: string
 }
 
-let populationPromise: Promise<PopulationData> | null = null
-
 export function loadPopulation(relativePath: string): Promise<PopulationData> {
-  populationPromise ??= fetchJson(relativePath).then((raw) => {
-    if (!isRecord(raw) || !isRecord(raw.values) || !Array.isArray(raw.years)) {
-      throw new DataFileError(`${relativePath}: invalid population file`)
-    }
-    const values = new Map<string, Map<number, number>>()
-    for (const [iso3, byYear] of Object.entries(raw.values)) {
-      if (!isRecord(byYear)) {
-        throw new DataFileError(`${relativePath}: invalid population entry for ${iso3}`)
+  return loadOnce(`population:${relativePath}`, () =>
+    fetchJson(relativePath).then((raw) => {
+      if (!isRecord(raw) || !isRecord(raw.values) || !Array.isArray(raw.years)) {
+        throw new DataFileError(`${relativePath}: invalid population file`)
       }
-      const perYear = new Map<number, number>()
-      for (const [year, value] of Object.entries(byYear)) {
-        if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-          throw new DataFileError(`${relativePath}: invalid population for ${iso3} ${year}`)
+      const values = new Map<string, Map<number, number>>()
+      for (const [iso3, byYear] of Object.entries(raw.values)) {
+        if (!isRecord(byYear)) {
+          throw new DataFileError(`${relativePath}: invalid population entry for ${iso3}`)
         }
-        perYear.set(Number(year), value)
+        const perYear = new Map<number, number>()
+        for (const [year, value] of Object.entries(byYear)) {
+          if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+            throw new DataFileError(`${relativePath}: invalid population for ${iso3} ${year}`)
+          }
+          perYear.set(Number(year), value)
+        }
+        values.set(iso3, perYear)
       }
-      values.set(iso3, perYear)
-    }
-    return {
-      values,
-      years: new Set(raw.years as number[]),
-      evidenceType: isEvidenceType(raw.evidenceType) ? raw.evidenceType : "reconstructed",
-      sourceId: typeof raw.sourceId === "string" ? raw.sourceId : "unknown",
-    }
-  })
-  populationPromise.catch(() => {
-    populationPromise = null
-  })
-  return populationPromise
+      return {
+        values,
+        years: new Set(raw.years as number[]),
+        evidenceType: isEvidenceType(raw.evidenceType) ? raw.evidenceType : "reconstructed",
+        sourceId: typeof raw.sourceId === "string" ? raw.sourceId : "unknown",
+      }
+    }),
+  )
 }
 
 /** Test hook: clears module-level caches between test cases. */
 export function resetDataCaches(): void {
   yearFileCache.clear()
   seriesCache.clear()
-  geographyIndexPromise = null
-  geojsonPromise = null
-  populationPromise = null
+  singletonCache.clear()
   dataVersion = null
 }

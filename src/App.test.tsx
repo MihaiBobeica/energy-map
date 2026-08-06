@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import App from "./App.tsx"
@@ -159,7 +159,7 @@ const geographyIndex = {
   countries: [{ id: 1, iso3: "USA", name: "United States" }],
 }
 
-function yearFile(metric: string, year: number) {
+function yearFile(metric: string, year: number, values: Record<string, number>) {
   return {
     metric,
     year,
@@ -167,12 +167,19 @@ function yearFile(metric: string, year: number) {
     sourceId: `owid-${metric}`,
     datasetVersion: "2026-04-24",
     evidenceType: "observed",
-    values: { USA: 4200.25 },
+    values,
     worldTotal: 27000.5,
   }
 }
 
-function stubFetchRoutes() {
+type StubOptions = {
+  /** Per-country values every year file reports. */
+  values?: Record<string, number>
+  /** Years whose file fetch fails, so failure handling can be exercised. */
+  failYears?: Set<number>
+}
+
+function stubFetchRoutes({ values = { USA: 4200.25 }, failYears }: StubOptions = {}) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL) => {
@@ -183,7 +190,11 @@ function stubFetchRoutes() {
       if (url.endsWith("countries.geojson")) return respond(geojson)
       if (url.endsWith("geography-index.json")) return respond(geographyIndex)
       const yearMatch = /years\/([a-z-]+)\/(\d{4})\.json$/.exec(url)
-      if (yearMatch) return respond(yearFile(yearMatch[1]!, Number(yearMatch[2])))
+      if (yearMatch) {
+        const year = Number(yearMatch[2])
+        if (failYears?.has(year)) throw new TypeError("Failed to fetch")
+        return respond(yearFile(yearMatch[1]!, year, values))
+      }
       if (url.endsWith("population.json"))
         return respond({
           datasetVersion: "2024-07-15",
@@ -417,6 +428,75 @@ describe("Atlas UI", () => {
     fireEvent.click(restore)
     expect(screen.getByRole("combobox", { name: "Metric" })).toBeInTheDocument()
     expect(screen.getByLabelText("Legend")).toBeInTheDocument()
+  })
+
+  it("restarts the span when play is pressed at the last year", async () => {
+    window.history.replaceState(null, "", "/?metric=electricity-generation&year=2025")
+    stubFetchRoutes()
+    render(<App />)
+
+    expect(await screen.findByTestId("year-value")).toHaveTextContent("2025")
+    // Playing from the end used to stop again on the first tick, so the button
+    // did nothing at all: it toggled to Pause and back.
+    fireEvent.click(screen.getByRole("button", { name: "Play" }))
+    expect(screen.getByTestId("year-value")).toHaveTextContent("2000")
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }))
+  })
+
+  it("reports a reported zero as zero of the world, not as a trace of it", async () => {
+    window.history.replaceState(null, "", "/?metric=electricity-generation&year=2024&country=USA")
+    stubFetchRoutes({ values: { USA: 0 } })
+    render(<App />)
+
+    expect(await screen.findByRole("heading", { name: "United States" })).toBeInTheDocument()
+    // "< 0.1%" turned a country that reported exactly zero back into a small
+    // unknown quantity.
+    expect(await screen.findByText("0%")).toBeInTheDocument()
+    expect(screen.queryByText("< 0.1%")).not.toBeInTheDocument()
+  })
+
+  it("drops a year it could not load instead of leaving the last one painted", async () => {
+    stubFetchRoutes({ failYears: new Set([2000]) })
+    render(<App />)
+
+    expect(await screen.findByTestId("year-value")).toHaveTextContent("2024")
+    fireEvent.click(screen.getByRole("button", { name: "Previous year" }))
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent(/Data failed to load/)
+    // Not stuck mid-load: the year is settled, just settled as "no data".
+    expect(screen.queryByText("loading…")).not.toBeInTheDocument()
+
+    // And the failure is recoverable in place — the loader used to cache it.
+    stubFetchRoutes()
+    fireEvent.click(within(alert).getByRole("button", { name: "Retry" }))
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument())
+    expect(screen.getByTestId("year-value")).toHaveTextContent("2000")
+  })
+
+  it("returns focus to the control that replaced the one it collapsed", async () => {
+    stubFetchRoutes()
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Hide controls" }))
+    // Focus used to fall to the body, dropping a keyboard user at the top of
+    // the document with no way back to the controls.
+    const restore = screen.getByRole("button", { name: "Show controls" })
+    expect(restore).toHaveFocus()
+
+    fireEvent.click(restore)
+    expect(screen.getByRole("button", { name: "Hide controls" })).toHaveFocus()
+  })
+
+  it("closes the country panel on Escape", async () => {
+    window.history.replaceState(null, "", "/?metric=electricity-generation&year=2024&country=USA")
+    stubFetchRoutes()
+    render(<App />)
+
+    expect(await screen.findByRole("heading", { name: "United States" })).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: "Escape" })
+    expect(screen.queryByRole("heading", { name: "United States" })).not.toBeInTheDocument()
+    expect(window.location.search).not.toContain("country=")
   })
 
   it("shows an explicit failure state with retry when the manifest cannot load", async () => {

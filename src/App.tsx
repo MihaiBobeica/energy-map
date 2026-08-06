@@ -1,5 +1,5 @@
 import type { FeatureCollection } from "geojson"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { ControlRail, type Basis } from "./components/ControlRail.tsx"
 import { CountryPanel } from "./components/CountryPanel.tsx"
@@ -82,6 +82,9 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
   const [playing, setPlaying] = useState(false)
   const [hover, setHover] = useState<HoverInfo | null>(null)
   const [railOpen, setRailOpen] = useState(true)
+  // Bumped by the error banner's Retry. Every fetch below is keyed on it, so
+  // one button re-runs whichever loader is currently broken.
+  const [reloadToken, setReloadToken] = useState(0)
 
   const dataset = useMemo(
     () => datasets.find((candidate) => candidate.id === datasetId) ?? datasets[0] ?? null,
@@ -145,7 +148,7 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
     return () => {
       cancelled = true
     }
-  }, [manifest.countriesGeojsonPath, manifest.geographyIndexPath])
+  }, [manifest.countriesGeojsonPath, manifest.geographyIndexPath, reloadToken])
 
   useEffect(() => {
     const path = manifest.population?.path
@@ -176,15 +179,19 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
         setErrors((current) => ({ ...current, year: null }))
       })
       .catch((error: unknown) => {
-        if (!cancelled) {
-          const message = error instanceof Error ? error.message : String(error)
-          setErrors((current) => ({ ...current, year: message }))
-        }
+        if (cancelled) return
+        const message = error instanceof Error ? error.message : String(error)
+        // Drop the previous year's values rather than leaving them painted
+        // under the new year's label: an unloadable year has no data, and
+        // showing 2023's map captioned 2024 states something false. Claiming
+        // the key also releases the permanent "loading…" chip.
+        setYearState({ key, file: null })
+        setErrors((current) => ({ ...current, year: message }))
       })
     return () => {
       cancelled = true
     }
-  }, [dataset, year])
+  }, [dataset, year, reloadToken])
 
   // --- selected-country history ---------------------------------------
   useEffect(() => {
@@ -241,6 +248,34 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
     return () => window.clearInterval(timer)
   }, [playing, availableYears])
 
+  // Escape dismisses the country panel. It is the standard way out of an
+  // overlay, and until now the only way to close it was to hit one 26px
+  // button — or to know that clicking the ocean deselects.
+  useEffect(() => {
+    if (!selectedIso3) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedIso3(null)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [selectedIso3])
+
+  // Collapsing the rail unmounts the button that was focused, which dropped
+  // keyboard focus to the document body. Hand it to whichever control took
+  // its place — but never on first paint, which nobody asked for.
+  const hideButtonRef = useRef<HTMLButtonElement>(null)
+  const restoreButtonRef = useRef<HTMLButtonElement>(null)
+  const railToggled = useRef(false)
+  useEffect(() => {
+    if (!railToggled.current) return
+    const target = railOpen ? hideButtonRef.current : restoreButtonRef.current
+    target?.focus()
+  }, [railOpen])
+  const toggleRail = useCallback((open: boolean) => {
+    railToggled.current = true
+    setRailOpen(open)
+  }, [])
+
   const populationFor = useCallback(
     (iso3: string) => population?.values.get(iso3)?.get(year) ?? null,
     [population, year],
@@ -290,6 +325,21 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
     },
     [dataset, populationYears],
   )
+
+  // Play at the end of the span used to be a no-op: the timer fired once,
+  // found no next year and stopped again. Restart the span instead, so the
+  // button always does the thing it depicts.
+  const handleTogglePlay = useCallback(() => {
+    if (playing) {
+      setPlaying(false)
+      return
+    }
+    const first = availableYears[0]
+    if (first !== undefined && year === availableYears[availableYears.length - 1]) {
+      setYear(first)
+    }
+    setPlaying(true)
+  }, [playing, year, availableYears])
 
   const handleHover = useCallback((info: HoverInfo | null) => setHover(info), [])
   const handleSelect = useCallback((iso3: string | null) => setSelectedIso3(iso3), [])
@@ -354,8 +404,9 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
           onSelectDataset={handleSelectDataset}
           onBasisChange={handleBasisChange}
           onYearChange={setYear}
-          onTogglePlay={() => setPlaying((current) => !current)}
-          onHide={() => setRailOpen(false)}
+          onTogglePlay={handleTogglePlay}
+          onHide={() => toggleRail(false)}
+          hideButtonRef={hideButtonRef}
         />
       ) : (
         /* Collapsed: one labelled affordance, not a bare icon, so it is
@@ -363,7 +414,8 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
         <button
           type="button"
           className="card rail-restore"
-          onClick={() => setRailOpen(true)}
+          ref={restoreButtonRef}
+          onClick={() => toggleRail(true)}
           aria-label="Show controls"
           aria-expanded={false}
           aria-controls="map-controls"
@@ -377,8 +429,13 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
       )}
 
       {dataError && (
+        /* A dead end used to be the whole story here: the failed fetch was
+           cached, so nothing short of a page reload could recover. */
         <div className="data-error" role="alert">
-          Data failed to load: {dataError}
+          <span>Data failed to load: {dataError}</span>
+          <button type="button" onClick={() => setReloadToken((current) => current + 1)}>
+            Retry
+          </button>
         </div>
       )}
 
