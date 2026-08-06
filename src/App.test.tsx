@@ -211,9 +211,15 @@ function stubFetchRoutes({ values = { USA: 4200.25 }, failYears }: StubOptions =
   )
 }
 
+/** jsdom reports a fixed width; some cases need to act like a phone. */
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, "innerWidth", { value: width, writable: true, configurable: true })
+}
+
 beforeEach(() => {
   resetDataCaches()
   window.history.replaceState(null, "", "/")
+  setViewportWidth(1024)
 })
 
 afterEach(() => {
@@ -497,6 +503,31 @@ describe("Atlas UI", () => {
     fireEvent.keyDown(window, { key: "Escape" })
     expect(screen.queryByRole("heading", { name: "United States" })).not.toBeInTheDocument()
     expect(window.location.search).not.toContain("country=")
+  })
+
+  it("opens with the map rather than the controls on a phone", async () => {
+    setViewportWidth(390)
+    stubFetchRoutes()
+    render(<App />)
+
+    // The rail is a sheet across 42% of a phone screen. Opening it by default
+    // handed most of the display to controls nobody had reached for yet.
+    const restore = await screen.findByRole("button", { name: "Show controls" })
+    expect(screen.queryByRole("combobox", { name: "Metric" })).not.toBeInTheDocument()
+    // Collapsed is not blind: the restore button still captions the view.
+    expect(restore).toHaveTextContent("Electricity generation")
+    expect(restore).toHaveTextContent("2024")
+
+    fireEvent.click(restore)
+    expect(screen.getByRole("combobox", { name: "Metric" })).toBeInTheDocument()
+  })
+
+  it("still opens with the controls showing on a desktop", async () => {
+    stubFetchRoutes()
+    render(<App />)
+
+    expect(await screen.findByRole("combobox", { name: "Metric" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Show controls" })).not.toBeInTheDocument()
   })
 
   it("shows an explicit failure state with retry when the manifest cannot load", async () => {

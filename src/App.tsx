@@ -30,6 +30,12 @@ const ATTRIBUTION =
 
 const PLAYBACK_MS = 700
 
+/**
+ * The sheet breakpoint from index.css, kept in step by hand. Below it the rail
+ * is a sheet pinned across the top of the screen rather than a floating card.
+ */
+const MOBILE_QUERY = "(max-width: 640px)"
+
 export default function App() {
   const manifest = useManifest()
 
@@ -81,7 +87,12 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
   const [selectedIso3, setSelectedIso3] = useState<string | null>(initial?.country ?? null)
   const [playing, setPlaying] = useState(false)
   const [hover, setHover] = useState<HoverInfo | null>(null)
-  const [railOpen, setRailOpen] = useState(true)
+  // A phone has one screen, and the rail sheet claims 42% of it before anyone
+  // has asked for a control. Start collapsed there so the map — the thing
+  // being looked at — opens with the whole display, and the restore button
+  // still captions what is on it. Read once, at mount: a rail slamming shut
+  // mid-interaction on a rotate would be worse than the default it replaces.
+  const [railOpen, setRailOpen] = useState(() => !window.matchMedia(MOBILE_QUERY).matches)
   // Bumped by the error banner's Retry. Every fetch below is keyed on it, so
   // one button re-runs whichever loader is currently broken.
   const [reloadToken, setReloadToken] = useState(0)

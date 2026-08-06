@@ -165,6 +165,23 @@ test("controls can be hidden for a clean map and brought back", async ({ page })
   await expect(page.getByRole("combobox", { name: "Metric" })).toBeVisible()
 })
 
+test("a phone opens on the map, with the controls one tap away", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("./")
+
+  // The rail sheet covers 42% of a phone screen, so it starts collapsed.
+  const restore = page.getByRole("button", { name: "Show controls" })
+  await expect(restore).toBeVisible()
+  await expect(page.locator(".rail")).toHaveCount(0)
+  await expect(page.locator(".map-container canvas")).toBeVisible()
+  // Hidden controls must not mean a hidden view.
+  await expect(restore).toContainText("Electricity generation")
+  await expect(restore).toContainText("2024")
+
+  await restore.click()
+  await expect(page.getByRole("combobox", { name: "Metric" })).toBeVisible()
+})
+
 // A short, narrow window put both sheets at 88% of the height. They stack in
 // one column, so the country panel covered the map AND buried the rail beneath
 // it — the map, which is the product, was not visible at all.
@@ -177,6 +194,9 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport)
     await page.goto("./?metric=electricity-generation&year=2024&country=USA")
+    // The rail starts collapsed at this width; the sheets can only collide
+    // once it is open.
+    await page.getByRole("button", { name: "Show controls" }).click()
     await expect(page.locator(".country-panel")).toBeVisible()
 
     const rail = await page.locator(".rail").boundingBox()
