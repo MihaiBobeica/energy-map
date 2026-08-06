@@ -21,6 +21,7 @@ import { MapView, type HoverInfo } from "./map/MapView.tsx"
 import { buildSearch, parseUrlState, resolveState } from "./state/urlState.ts"
 import { formatValue } from "./utils/format.ts"
 import { colorForValue, PER_CAPITA_SCALE, TOTAL_SCALE } from "./utils/scale.ts"
+import { placeTooltip, TOOLTIP_MAX_WIDTH } from "./utils/tooltip.ts"
 
 const ATTRIBUTION =
   'Electricity data: <a href="https://ember-energy.org/">Ember</a> (CC BY 4.0) via ' +
@@ -35,6 +36,9 @@ const PLAYBACK_MS = 700
  * is a sheet pinned across the top of the screen rather than a floating card.
  */
 const MOBILE_QUERY = "(max-width: 640px)"
+
+/** True for a pointer that can rest over a target — a mouse, not a finger. */
+const HOVER_QUERY = "(hover: hover)"
 
 export default function App() {
   const manifest = useManifest()
@@ -93,6 +97,11 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
   // still captions what is on it. Read once, at mount: a rail slamming shut
   // mid-interaction on a rotate would be worse than the default it replaces.
   const [railOpen, setRailOpen] = useState(() => !window.matchMedia(MOBILE_QUERY).matches)
+  // A tooltip is a hover affordance, and a touch screen has no hover. Browsers
+  // synthesise one mousemove from a tap, so the tooltip appeared at the tap
+  // point and then sat there — over the country panel that had just opened and
+  // already says everything the tooltip does, with nothing to dismiss it.
+  const [hoverCapable] = useState(() => window.matchMedia(HOVER_QUERY).matches)
   // Bumped by the error banner's Retry. Every fetch below is keyed on it, so
   // one button re-runs whichever loader is currently broken.
   const [reloadToken, setReloadToken] = useState(0)
@@ -384,10 +393,9 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
   const announcement = `${datasetLabel}, ${basis === "per-capita" ? "per capita" : "total"}, ${year}${
     selectedName ? `, ${selectedName}` : ""
   }`
-  // Estimated tooltip footprint; exact width is unknown before paint, and a
-  // small overshoot only flips slightly earlier than strictly needed.
-  const flipTooltipX = hover !== null && hover.x > window.innerWidth - 260
-  const flipTooltipY = hover !== null && hover.y > window.innerHeight - 110
+  const tooltipAt = hover
+    ? placeTooltip(hover.x, hover.y, window.innerWidth, window.innerHeight)
+    : null
 
   return (
     <div className="atlas">
@@ -450,17 +458,15 @@ function Atlas({ manifest }: { manifest: DataManifest }) {
         </div>
       )}
 
-      {hover && (
+      {hover && tooltipAt && hoverCapable && (
         <div
           className="map-tooltip"
           style={{
-            left: hover.x + (flipTooltipX ? -14 : 14),
-            top: hover.y + (flipTooltipY ? -14 : 14),
-            // Flip around the cursor near an edge instead of being clipped by
-            // it — countries on the right of the map were losing their tooltip.
-            transform: `translate(${flipTooltipX ? "-100%" : "0"}, ${
-              flipTooltipY ? "-100%" : "0"
-            })`,
+            left: tooltipAt.left,
+            top: tooltipAt.top,
+            // Set here rather than in CSS so the width the placement assumes
+            // and the width the element actually takes cannot drift apart.
+            maxWidth: TOOLTIP_MAX_WIDTH,
           }}
           role="presentation"
         >

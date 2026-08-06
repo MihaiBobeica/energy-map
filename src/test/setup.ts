@@ -8,13 +8,20 @@ HTMLCanvasElement.prototype.getContext = vi.fn(
   () => ({}),
 ) as unknown as HTMLCanvasElement["getContext"]
 
-// jsdom implements no media queries at all. Answering max-width against
-// window.innerWidth covers the one query the app asks, and lets a test act
-// like a phone by setting innerWidth before rendering.
+// jsdom implements no media queries at all. This answers the two the app asks
+// against window.innerWidth, so a test acts like a phone simply by setting a
+// narrow width: a narrow viewport stands in for a touch screen here, which is
+// a simplification (a narrow desktop window has a mouse) but keeps the tests
+// to one dial.
 window.matchMedia = ((query: string) => {
   const maxWidth = /\(max-width:\s*(\d+)px\)/.exec(query)
+  const matches = maxWidth
+    ? window.innerWidth <= Number(maxWidth[1])
+    : query.includes("hover: hover")
+      ? window.innerWidth > 640
+      : false
   return {
-    matches: maxWidth ? window.innerWidth <= Number(maxWidth[1]) : false,
+    matches,
     media: query,
     onchange: null,
     addListener: vi.fn(),

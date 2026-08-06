@@ -554,10 +554,11 @@ body {
 
 /* --- tooltip ----------------------------------------------------------- */
 
+/* max-width is set inline from TOOLTIP_MAX_WIDTH, so the width the placement
+   maths assumes is the width the element actually takes. */
 .map-tooltip {
   position: absolute;
   z-index: 5;
-  max-width: 232px;
   pointer-events: none;
   display: flex;
   flex-direction: column;

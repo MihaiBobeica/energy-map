@@ -151,6 +151,65 @@ test("hovering the map highlights a country and keeps the tooltip on screen", as
   }
 })
 
+test("the tooltip stays on screen in a window too narrow to flip in", async ({ page }) => {
+  // No touch here: a narrow desktop window still has a mouse, and it is the
+  // case the old flip rule broke. Below 520px neither side of the pointer has
+  // room for a 232px tooltip, so it must clamp instead of flipping off-screen.
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("./")
+  await expect(page.locator(".map-container canvas")).toBeVisible()
+  const map = (await page.locator(".map-container").boundingBox())!
+
+  const tooltip = page.locator(".map-tooltip")
+  let seen = 0
+  for (const x of [0.2, 0.35, 0.5, 0.65, 0.8, 0.95]) {
+    for (const y of [0.45, 0.55, 0.62, 0.7]) {
+      await page.mouse.move(map.x + map.width * x, map.y + map.height * y)
+      await page.waitForTimeout(150)
+      if ((await tooltip.count()) === 0) continue
+      const box = await tooltip.boundingBox()
+      if (!box) continue
+      seen += 1
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width).toBeLessThanOrEqual(390 + 1)
+      expect(box.y).toBeGreaterThanOrEqual(0)
+      expect(box.y + box.height).toBeLessThanOrEqual(844 + 1)
+    }
+  }
+  // A sweep that never found a country would assert nothing at all.
+  expect(seen).toBeGreaterThan(0)
+})
+
+// test.use rather than browser.newContext: a hand-rolled context does not
+// inherit baseURL from the config, so "./" has nothing to resolve against.
+test.describe("on a touch screen", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+
+  test("a tap leaves no phantom tooltip behind", async ({ page }) => {
+    await page.goto("./?metric=electricity-generation&year=2024")
+    await expect(page.locator(".map-container canvas")).toBeVisible()
+    const map = (await page.locator(".map-container").boundingBox())!
+
+    // A tap synthesises one mousemove, which used to raise a tooltip that then
+    // sat over the country panel with no pointer left to dismiss it.
+    //
+    // Retry rather than sleep: the worker parses 1.7 MB of GeoJSON before the
+    // first geometry frame, so an early tap lands on nothing hittable.
+    await expect
+      .poll(
+        async () => {
+          await page.touchscreen.tap(map.x + map.width * 0.35, map.y + map.height * 0.55)
+          await page.waitForTimeout(400)
+          return page.locator(".country-panel").count()
+        },
+        { timeout: 20_000, message: "a tap never selected a country" },
+      )
+      .toBeGreaterThan(0)
+
+    await expect(page.locator(".map-tooltip")).toHaveCount(0)
+  })
+})
+
 test("controls can be hidden for a clean map and brought back", async ({ page }) => {
   await page.goto("./")
   await page.getByRole("button", { name: "Hide controls" }).click()
